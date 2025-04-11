@@ -7,14 +7,16 @@ import {
   StatusBar,
   Image,
   TouchableOpacity,
-  FlatList,
-  Dimensions,
   TextInput,
   ImageBackground,
+  Dimensions,
 } from 'react-native';
 import {IconButton} from 'react-native-paper';
 import {useNavigation} from '@react-navigation/native';
+import Carousel from 'react-native-reanimated-carousel';
 import {API_KEY} from '#/api/tmdbApi';
+import {isEnabled} from 'react-native/Libraries/Performance/Systrace';
+import {RepeatFrequency, TimestampTrigger, TriggerType} from '@notifee/react-native';
 
 const {width} = Dimensions.get('window');
 
@@ -39,6 +41,7 @@ const ComingSoonScreen: React.FC = () => {
         );
         const data = await response.json();
         setMovies(data.results || []);
+
         setLoading(false);
       } catch (error) {
         console.error('Error fetching coming soon movies:', error);
@@ -60,13 +63,58 @@ const ComingSoonScreen: React.FC = () => {
       })
       .replace(/\//g, '/');
   };
+  const toggleSwitch = async () => {
+    await notifee.requestPermission();
+    if (filmFind?.isAnnouncement) {
+      await notifee.cancelNotification(filmFind?.isAnnouncement);
+    }
+    if (!isEnabled) {
+      const newId = uuid.v4().toString();
+      let date = new Date();
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: date.getTime(),
 
+        repeatFrequency: RepeatFrequency.NONE,
+      };
+      await notifee.createTriggerNotification(
+        {
+          id: newId,
+          title: filmFind?.name,
+          body: '',
+        },
+        trigger,
+      );
+      const updateData = (events || []).map(item =>
+        item.id === id
+          ? {
+              ...item,
+              isAnnouncement: newId,
+            }
+          : item,
+      );
+      saveEvents(updateData);
+      setIsEnabled(true); 
+    } else {
+      const updateData = (events || []).map(item =>
+        item.id === id
+          ? {
+              ...item,
+              isAnnouncement: null,
+            }
+          : item,
+      );
+      saveEvents(updateData);
+      setIsEnabled(false);
+    }
+  };
   const renderMovieItem = ({item, index}: {item: MovieType; index: number}) => {
-    const isMain = index === 1;
     return (
       <TouchableOpacity
-        style={[styles.movieCard, isMain ? styles.mainCard : styles.sideCard]}
-        onPress={() => navigation.navigate('MovieDetail', {movie: item})}
+        style={styles.movieCard}
+        onPress={() => {
+          console.log(item);
+        }}
         activeOpacity={0.8}>
         <Image
           source={{
@@ -74,29 +122,25 @@ const ComingSoonScreen: React.FC = () => {
               ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
               : 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/movie%20info-B7KFqipXWPoxaSNv9jRcP1oOuuuCpY.png',
           }}
-          style={isMain ? styles.mainPoster : styles.sidePoster}
+          style={styles.poster}
           resizeMode="cover"
         />
-        {isMain && (
-          <>
-            <TouchableOpacity style={styles.notificationButton}>
-              <IconButton
-                icon="bell-outline"
-                size={20}
-                iconColor="#0F4C3A"
-                style={{margin: 0}}
-              />
-            </TouchableOpacity>
-            <View style={styles.titleContainer}>
-              <Text style={styles.movieTitle} numberOfLines={2}>
-                {item.title || 'When Life Gives You Tangerines'}
-              </Text>
-              <Text style={styles.releaseDate}>
-                {formatDate(item.release_date) || '20/04/2025'}
-              </Text>
-            </View>
-          </>
-        )}
+        <TouchableOpacity style={styles.notificationButton}>
+          <IconButton
+            icon="bell-outline"
+            size={20}
+            iconColor="#0F4C3A"
+            style={{margin: 0}}
+          />
+        </TouchableOpacity>
+        <View style={styles.titleContainer}>
+          <Text style={styles.movieTitle} numberOfLines={2}>
+            {item.title || 'When Life Gives You Tangerines'}
+          </Text>
+          <Text style={styles.releaseDate}>
+            {formatDate(item.release_date) || '20/04/2025'}
+          </Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -133,13 +177,20 @@ const ComingSoonScreen: React.FC = () => {
             />
           </View>
 
-          <FlatList
+          <Carousel
+            width={width * 0.7}
+            height={500}
             data={movies}
             renderItem={renderMovieItem}
-            keyExtractor={item => `coming-soon-${item.id}`}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.movieList}
+            style={styles.carousel}
+            loop
+            autoPlay
+            autoPlayInterval={3000}
+            mode="parallax"
+            modeConfig={{
+              parallaxScrollingScale: 0.9,
+              parallaxScrollingOffset: 50,
+            }}
           />
         </View>
       </ImageBackground>
@@ -151,6 +202,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#D8F3E9',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   background: {
     flex: 1,
@@ -177,11 +230,12 @@ const styles = StyleSheet.create({
     color: '#333333',
     paddingVertical: 8,
   },
-  movieList: {
-    justifyContent: 'center',
+  carousel: {
+    alignItems: 'center',
   },
   movieCard: {
-    marginHorizontal: 5,
+    width: width * 0.7,
+    height: 500,
     borderRadius: 15,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
@@ -191,20 +245,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
   },
-  mainCard: {
-    width: width * 0.5,
-    height: width * 0.7,
-  },
-  sideCard: {
-    width: width * 0.3,
-    height: width * 0.5,
-    marginTop: 30,
-  },
-  mainPoster: {
-    width: '100%',
-    height: '100%',
-  },
-  sidePoster: {
+  poster: {
     width: '100%',
     height: '100%',
   },

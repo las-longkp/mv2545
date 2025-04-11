@@ -1,26 +1,23 @@
 // screens/AddMovieScreen.tsx
+import {colors} from '#/themes/colors';
+import {useNavigation} from '@react-navigation/native';
 import React, {useState} from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  ScrollView,
-  StatusBar,
   Alert,
-  Platform,
+  Image,
   ImageBackground,
   PermissionsAndroid,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import {
-  launchImageLibrary,
-  ImagePickerResponse,
-} from 'react-native-image-picker';
-import {colors} from '#/themes/colors';
+import {launchImageLibrary} from 'react-native-image-picker';
 
 interface MovieFormData {
   title: string;
