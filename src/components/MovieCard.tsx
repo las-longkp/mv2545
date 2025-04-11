@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
+import {Icon} from 'react-native-paper';
 
 const {width} = Dimensions.get('window');
 
@@ -17,6 +18,7 @@ interface MovieCardProps {
   posterPath: string;
   size?: 'small' | 'medium' | 'large';
   onPress?: () => void;
+  type: 'add' | 'show';
 }
 
 const MovieCard: React.FC<MovieCardProps> = ({
@@ -25,6 +27,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
   posterPath,
   size = 'medium',
   onPress,
+  type,
 }) => {
   const getCardDimensions = () => {
     switch (size) {
@@ -50,7 +53,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
   const dimensions = getCardDimensions();
 
   const getPosterUrl = () => {
-    if (posterPath.startsWith('http')) {
+    if (posterPath.startsWith('http') || posterPath.startsWith('file')) {
       return posterPath;
     }
     return `https://image.tmdb.org/t/p/w500${posterPath}`;
@@ -62,16 +65,30 @@ const MovieCard: React.FC<MovieCardProps> = ({
       onPress={onPress}
       activeOpacity={0.8}>
       <View style={[styles.card, {height: dimensions.height}]}>
-        <Image
-          source={{uri: getPosterUrl()}}
-          style={styles.poster}
-          resizeMode="cover"
-        />
+        {type === 'add' ? (
+          <View
+            style={[
+              styles.poster,
+              {
+                backgroundColor: colors.Primary3,
+                justifyContent: 'center',
+                alignItems: 'center',
+              },
+            ]}>
+            <Icon size={44} source="plus-circle-outline" />
+          </View>
+        ) : (
+          <Image
+            source={{uri: getPosterUrl()}}
+            style={styles.poster}
+            resizeMode="cover"
+          />
+        )}
         <View style={styles.titleContainer}>
           <Text
             style={[styles.title, size === 'small' && styles.smallTitle]}
             numberOfLines={2}>
-            {title}
+            {type === 'add' ? 'Add movie' : title}
           </Text>
           <View
             style={{
@@ -93,7 +110,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    margin: 5,
+    marginRight: 10,
   },
   card: {
     borderRadius: 10,

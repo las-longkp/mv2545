@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -12,53 +12,70 @@ import {
   ActivityIndicator,
   ImageBackground,
 } from 'react-native';
-import {MovieType, RootStackParamsList, Screens} from '#/navigator/type';
+import {
+  MovieType,
+  MyMovie,
+  RootStackParamsList,
+  Screens,
+  TypeList,
+} from '#/navigator/type';
 import {fetchPopularMovies} from '#/api/tmdbApi';
 import MovieCard from '#/components/MovieCard';
 import {colors} from '#/themes/colors';
 import {IconButton} from 'react-native-paper';
 import {StackNavigationProp} from '@react-navigation/stack';
+import {RouteProp} from '@react-navigation/native';
+import {useMyMovieList} from '#/useLocalStorageSWR';
 
 const {width} = Dimensions.get('window');
 const numColumns = 3;
 const itemWidth = (width - 40 - (numColumns - 1) * 10) / numColumns;
-type PopularMoviesScreenProps = {
+type ListMovieScreenProps = {
   navigation: StackNavigationProp<RootStackParamsList>;
+  route: RouteProp<RootStackParamsList, Screens.ListMovieScreen>;
 };
 
-export const PopularMoviesScreen: React.FC<PopularMoviesScreenProps> = ({
+export const ListMovieScreen: React.FC<ListMovieScreenProps> = ({
   navigation,
+  route,
 }) => {
-  const [movies, setMovies] = useState<MovieType[]>([]);
+  const {type} = route.params;
+  const [movies, setMovies] = useState<(MovieType | MyMovie)[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState<number>(1);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const {data: dataMyMovieList, saveData: saveDataMyMovieList} =
+    useMyMovieList();
 
+  const loadMovies = useCallback<(refresh?: boolean) => Promise<void>>(
+    async (refresh = false) => {
+      try {
+        setLoading(true);
+        if (type === TypeList.POPULAR) {
+          const newMovies = await fetchPopularMovies();
+          if (refresh) {
+            setMovies(newMovies);
+            setRefreshing(false);
+            setPage(2);
+          } else {
+            setMovies(prev => [...prev, ...newMovies]);
+            setPage(prev => prev + 1);
+          }
+        } else {
+          setMovies(dataMyMovieList || []);
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading popular movies:', error);
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [type, dataMyMovieList, setLoading, setMovies, setRefreshing, setPage],
+  );
   useEffect(() => {
     loadMovies();
-  }, []);
-
-  const loadMovies = async (refresh = false) => {
-    try {
-      setLoading(true);
-      const newMovies = await fetchPopularMovies();
-
-      if (refresh) {
-        setMovies(newMovies);
-        setRefreshing(false);
-        setPage(2);
-      } else {
-        setMovies(prev => [...prev, ...newMovies]);
-        setPage(prev => prev + 1);
-      }
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error loading popular movies:', error);
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  }, [loadMovies]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -71,17 +88,21 @@ export const PopularMoviesScreen: React.FC<PopularMoviesScreenProps> = ({
     }
   };
 
-  const handleMoviePress = (movie: MovieType) => {
-    navigation.navigate(Screens.MovieDetailScreen, {movie});
+  const handleMoviePress = (movie: MovieType | MyMovie) => {
+    navigation.navigate(Screens.MovieDetailScreen, {
+      movie,
+      type: TypeList.POPULAR,
+    });
   };
 
-  const renderMovieItem = ({item}: {item: MovieType}) => (
+  const renderMovieItem = ({item}: {item: MovieType | MyMovie}) => (
     <MovieCard
       id={item.id || ''}
       title={item.title || ''}
-      posterPath={item.poster_path}
+      posterPath={item.poster_path || ''}
       size="small"
       onPress={() => handleMoviePress(item)}
+      type="show"
     />
   );
 

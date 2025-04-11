@@ -1,13 +1,12 @@
-// screens/AddMovieScreen.tsx
+import {MyMovie} from '#/navigator/type';
 import {colors} from '#/themes/colors';
+import {useMyMovieList} from '#/useLocalStorageSWR';
 import {useNavigation} from '@react-navigation/native';
 import React, {useState} from 'react';
 import {
   Alert,
   Image,
   ImageBackground,
-  PermissionsAndroid,
-  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -19,61 +18,18 @@ import {
 } from 'react-native';
 import {launchImageLibrary} from 'react-native-image-picker';
 
-interface MovieFormData {
-  title: string;
-  genre: string;
-  releaseYear: string;
-  plot: string;
-  review: string;
-  posterUri: string | null;
-}
-
 const AddMovieScreen = () => {
   const navigation = useNavigation();
-  const [formData, setFormData] = useState<MovieFormData>({
+  const [formData, setFormData] = useState<MyMovie>({
     title: '',
     genre: '',
-    releaseYear: '',
-    plot: '',
-    review: '',
-    posterUri: null,
+    release_date: '',
+    overview: '',
+    poster_path: null,
+    id: '',
   });
-
-  const requestStoragePermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES ||
-            PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          {
-            title: 'Storage Permission',
-            message:
-              'App needs access to your storage to select a poster image',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn(err);
-        return false;
-      }
-    }
-    return true; // iOS doesn't need this permission check
-  };
-
+  const {data, saveData} = useMyMovieList();
   const handleUploadPoster = async () => {
-    const hasPermission = await requestStoragePermission();
-
-    if (!hasPermission) {
-      Alert.alert(
-        'Permission Denied',
-        'You need to grant storage permission to upload a poster',
-      );
-      return;
-    }
-
     const options = {
       mediaType: 'photo' as const,
       includeBase64: false,
@@ -83,26 +39,22 @@ const AddMovieScreen = () => {
 
     try {
       const response = await launchImageLibrary(options);
-
       if (response.didCancel) {
-        console.log('User cancelled image picker');
       } else if (response.errorCode) {
-        console.log('ImagePicker Error: ', response.errorMessage);
         Alert.alert('Error', 'Failed to pick image: ' + response.errorMessage);
       } else if (response.assets && response.assets.length > 0) {
         const selectedImage = response.assets[0];
         setFormData({
           ...formData,
-          posterUri: selectedImage.uri || null,
+          poster_path: selectedImage.uri || null,
         });
       }
     } catch (error) {
-      console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to upload image. Please try again.');
     }
   };
 
-  const handleInputChange = (field: keyof MovieFormData, value: string) => {
+  const handleInputChange = (field: keyof MyMovie, value: string) => {
     setFormData({
       ...formData,
       [field]: value,
@@ -115,17 +67,22 @@ const AddMovieScreen = () => {
       return;
     }
 
-    if (!formData.posterUri) {
+    if (!formData.poster_path) {
       Alert.alert('Error', 'Please upload a movie poster');
       return;
     }
-
-    console.log('Importing movie:', formData);
-
     Alert.alert(
       'Success',
       `"${formData.title}" has been added to your movies`,
-      [{text: 'OK', onPress: () => navigation.goBack()}],
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            saveData([...(data || []), formData]);
+            navigation.goBack();
+          },
+        },
+      ],
     );
   };
 
@@ -142,14 +99,13 @@ const AddMovieScreen = () => {
           contentContainerStyle={styles.scrollContent}>
           <Text style={styles.headerTitle}>Add Movie</Text>
 
-          {/* Poster Upload */}
           <TouchableOpacity
             style={styles.posterUpload}
             onPress={handleUploadPoster}
             activeOpacity={0.8}>
-            {formData.posterUri ? (
+            {formData.poster_path ? (
               <Image
-                source={{uri: formData.posterUri}}
+                source={{uri: formData.poster_path}}
                 style={styles.posterImage}
                 resizeMode="cover"
               />
@@ -170,7 +126,6 @@ const AddMovieScreen = () => {
             </View>
           </TouchableOpacity>
 
-          {/* Form Fields */}
           <View style={styles.formContainer}>
             <TextInput
               style={styles.input}
@@ -186,35 +141,24 @@ const AddMovieScreen = () => {
               placeholderTextColor="#999999"
               keyboardType="number-pad"
               maxLength={4}
-              value={formData.releaseYear}
-              onChangeText={text => handleInputChange('releaseYear', text)}
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder="The Plot"
-              placeholderTextColor="#999999"
-              multiline
-              numberOfLines={3}
-              value={formData.plot}
-              onChangeText={text => handleInputChange('plot', text)}
+              value={formData.release_date}
+              onChangeText={text => handleInputChange('release_date', text)}
             />
 
             <TextInput
               style={styles.reviewInput}
-              placeholder="Write a review"
+              placeholder="The Plot"
               placeholderTextColor="#999999"
               multiline
-              numberOfLines={5}
+              numberOfLines={8}
               textAlignVertical="top"
-              value={formData.review}
-              onChangeText={text => handleInputChange('review', text)}
+              value={formData.overview}
+              onChangeText={text => handleInputChange('overview', text)}
             />
           </View>
 
-          {/* Import Button */}
           <TouchableOpacity style={styles.importButton} onPress={handleImport}>
-            <Text style={styles.importButtonText}>Import</Text>
+            <Text style={styles.importButtonText}>Save</Text>
           </TouchableOpacity>
         </ScrollView>
       </ImageBackground>

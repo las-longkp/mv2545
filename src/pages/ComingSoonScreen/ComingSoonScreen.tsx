@@ -15,22 +15,23 @@ import {IconButton} from 'react-native-paper';
 import {useNavigation} from '@react-navigation/native';
 import Carousel from 'react-native-reanimated-carousel';
 import {API_KEY} from '#/api/tmdbApi';
-import {isEnabled} from 'react-native/Libraries/Performance/Systrace';
-import {RepeatFrequency, TimestampTrigger, TriggerType} from '@notifee/react-native';
+import notifee, {
+  RepeatFrequency,
+  TimestampTrigger,
+  TriggerType,
+} from '@notifee/react-native';
+import {useIsNotificationSetList} from '#/useLocalStorageSWR';
+import {MovieType} from '#/navigator/type';
+import uuid from 'react-native-uuid';
 
 const {width} = Dimensions.get('window');
-
-interface MovieType {
-  id: number;
-  title: string;
-  poster_path: string;
-  release_date: string;
-}
 
 const ComingSoonScreen: React.FC = () => {
   const navigation = useNavigation();
   const [movies, setMovies] = useState<MovieType[]>([]);
   const [loading, setLoading] = useState(true);
+  const {data: dataNotificationList, saveData: saveDataNotificationList} =
+    useIsNotificationSetList();
 
   useEffect(() => {
     const fetchComingSoonMovies = async () => {
@@ -39,9 +40,22 @@ const ComingSoonScreen: React.FC = () => {
         const response = await fetch(
           `https://api.themoviedb.org/3/movie/upcoming?api_key=${API_KEY}&language=en-US&page=1`,
         );
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
-        setMovies(data.results || []);
-
+        const movies: MovieType[] = (data.results || []).map((item: any) => ({
+          id: String(item.id),
+          title: item.title || '',
+          poster_path: item.poster_path || '',
+          backdrop_path: item.backdrop_path || '',
+          overview: item.overview || '',
+          release_date: item.release_date || '',
+          vote_average: item.vote_average || 0,
+          vote_count: item.vote_count || 0,
+          genre_ids: item.genre_ids || [],
+        }));
+        setMovies(movies);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching coming soon movies:', error);
@@ -63,58 +77,51 @@ const ComingSoonScreen: React.FC = () => {
       })
       .replace(/\//g, '/');
   };
-  const toggleSwitch = async () => {
+
+  const toggleSwitch = async (movie: MovieType) => {
     await notifee.requestPermission();
-    if (filmFind?.isAnnouncement) {
-      await notifee.cancelNotification(filmFind?.isAnnouncement);
-    }
-    if (!isEnabled) {
+    const movieFind = (dataNotificationList || []).find(
+      item => item.id === movie.id,
+    );
+    if (movieFind) {
+      await notifee.cancelNotification(movieFind.id.toString());
+      const updateData = (dataNotificationList || []).filter(
+        item => item.id !== movie.id,
+      );
+      saveDataNotificationList(updateData);
+    } else {
       const newId = uuid.v4().toString();
-      let date = new Date();
+      const releaseDate = new Date(movie.release_date);
+      if (isNaN(releaseDate.getTime())) {
+        console.warn(`Invalid release date for ${movie.title}`);
+        return;
+      }
       const trigger: TimestampTrigger = {
         type: TriggerType.TIMESTAMP,
-        timestamp: date.getTime(),
-
+        timestamp: releaseDate.getTime(),
         repeatFrequency: RepeatFrequency.NONE,
       };
       await notifee.createTriggerNotification(
         {
           id: newId,
-          title: filmFind?.name,
+          title: `${movie?.title} is out now, watch it now!`,
           body: '',
         },
         trigger,
       );
-      const updateData = (events || []).map(item =>
-        item.id === id
-          ? {
-              ...item,
-              isAnnouncement: newId,
-            }
-          : item,
-      );
-      saveEvents(updateData);
-      setIsEnabled(true); 
-    } else {
-      const updateData = (events || []).map(item =>
-        item.id === id
-          ? {
-              ...item,
-              isAnnouncement: null,
-            }
-          : item,
-      );
-      saveEvents(updateData);
-      setIsEnabled(false);
+      const updateData = [
+        ...(dataNotificationList || []),
+        {...movie, id: newId},
+      ];
+      saveDataNotificationList(updateData);
     }
   };
+
   const renderMovieItem = ({item, index}: {item: MovieType; index: number}) => {
     return (
       <TouchableOpacity
         style={styles.movieCard}
-        onPress={() => {
-          console.log(item);
-        }}
+        onPress={() => {}}
         activeOpacity={0.8}>
         <Image
           source={{
@@ -125,7 +132,9 @@ const ComingSoonScreen: React.FC = () => {
           style={styles.poster}
           resizeMode="cover"
         />
-        <TouchableOpacity style={styles.notificationButton}>
+        <TouchableOpacity
+          style={styles.notificationButton}
+          onPress={() => toggleSwitch(item)}>
           <IconButton
             icon="bell-outline"
             size={20}
@@ -202,13 +211,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#D8F3E9',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   background: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 10,
+    alignItems: 'center',
+    width: width,
   },
   headerTitle: {
     fontSize: 24,
@@ -222,7 +231,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     paddingHorizontal: 10,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,

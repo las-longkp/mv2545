@@ -13,29 +13,24 @@ import {
 } from 'react-native';
 import {IconButton} from 'react-native-paper';
 import {useNavigation, useRoute} from '@react-navigation/native';
-
+import {useRateMovieList} from '#/useLocalStorageSWR';
+import uuid from 'react-native-uuid';
 interface RateScreenProps {
   route?: any;
 }
 
 const RateScreen: React.FC<RateScreenProps> = ({route}) => {
   const navigation = useNavigation();
-  const movieData = route?.params?.movie || {
-    id: '1',
-    title: 'When Life Gives You Tangerines',
-    poster_path:
-      'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rate-ojecAqe80fJVvTmFGb1Ylo4dt0sWix.png',
-  };
-
+  const movieData = route?.params?.movie;
+  const {data, saveData} = useRateMovieList();
   const [rating, setRating] = useState<number>(5);
   const [review, setReview] = useState<string>('');
-
   const handleBack = () => {
     navigation.goBack();
   };
 
   const handleMenu = () => {
-    Alert.alert('Options', 'Select an option', [
+    Alert.alert('Options', 'Select an optioFn', [
       {text: 'Cancel', style: 'cancel'},
       {
         text: 'Clear Review',
@@ -56,11 +51,25 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
     Alert.alert(
       'Thank You!',
       `Your ${rating}-star review has been submitted.`,
-      [{text: 'OK', onPress: () => navigation.goBack()}],
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            const newData = {
+              star: rating,
+              review: review,
+              date: new Date().toISOString(),
+            };
+            const updateData = [
+              ...(data || []),
+              {...newData, idMovie: uuid.v4().toString()},
+            ];
+            saveData(updateData);
+            navigation.goBack();
+          },
+        },
+      ],
     );
-
-    console.log('Rating:', rating);
-    console.log('Review:', review);
   };
 
   const renderStars = () => {
@@ -75,7 +84,7 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
             icon={i <= rating ? 'star' : 'star-outline'}
             size={40}
             iconColor="#0F4C3A"
-            style={{margin: 0}} // Loại bỏ margin mặc định
+            style={{margin: 0}}
           />
         </TouchableOpacity>,
       );
@@ -88,11 +97,10 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
       <StatusBar barStyle="dark-content" backgroundColor="#D8F3E9" />
       <ImageBackground source={{uri: 'gridBg'}} style={{flex: 1}}>
         <View style={styles.backgroundImage}>
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleBack}>
               <IconButton
-                icon="chevron-left" // Thay "chevron-back"
+                icon="chevron-left"
                 size={28}
                 iconColor="#0F4C3A"
                 style={{margin: 0}}
@@ -103,7 +111,7 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
 
             <TouchableOpacity onPress={handleMenu}>
               <IconButton
-                icon="dots-horizontal" // Thay "ellipsis-horizontal"
+                icon="dots-horizontal"
                 size={24}
                 iconColor="#0F4C3A"
                 style={{margin: 0}}
@@ -111,7 +119,6 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
             </TouchableOpacity>
           </View>
 
-          {/* Movie Card */}
           <View style={styles.movieCard}>
             <Image
               source={{
@@ -127,10 +134,7 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
             </View>
           </View>
 
-          {/* Rating Stars */}
           <View style={styles.starsContainer}>{renderStars()}</View>
-
-          {/* Review Input */}
           <View style={styles.reviewContainer}>
             <TextInput
               style={styles.reviewInput}
@@ -142,7 +146,6 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
             />
           </View>
 
-          {/* Submit Button */}
           <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
             <Text style={styles.submitText}>Submit</Text>
           </TouchableOpacity>

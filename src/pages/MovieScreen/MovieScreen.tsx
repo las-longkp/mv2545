@@ -1,6 +1,13 @@
 import {fetchPopularMovies, fetchTrendingMovies} from '#/api/tmdbApi';
 import MovieCard from '#/components/MovieCard';
-import {MovieType, RootStackParamsList, Screens} from '#/navigator/type';
+import {
+  MovieType,
+  MyMovie,
+  RootStackParamsList,
+  Screens,
+  TypeList,
+} from '#/navigator/type';
+import {useMyMovieList} from '#/useLocalStorageSWR';
 import {StackNavigationProp} from '@react-navigation/stack';
 import React, {useEffect, useState} from 'react';
 import {
@@ -24,12 +31,13 @@ type MovieScreenProps = {
 };
 
 export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
+  const {data: dataMyMovieList, saveData: saveDataMyMovieList} =
+    useMyMovieList();
   const [trendingMovies, setTrendingMovies] = useState<MovieType[]>([]);
   const [popularMovies, setPopularMovies] = useState<MovieType[]>([]);
   const [myList, setMyList] = useState<MovieType[]>([]);
   const [featuredMovie, setFeaturedMovie] = useState<MovieType | null>(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const loadMovies = async () => {
       try {
@@ -59,8 +67,11 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
     loadMovies();
   }, []);
 
-  const handleMoviePress = (movie: MovieType) => {
-    navigation.navigate(Screens.MovieDetailScreen, {movie});
+  const handleMoviePress = (movie: MovieType | MyMovie, type: TypeList) => {
+    navigation.navigate(Screens.MovieDetailScreen, {
+      movie,
+      type: type,
+    });
   };
 
   const handleAddMovie = () => {
@@ -73,10 +84,23 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
       title={item.title || ''}
       posterPath={item.poster_path}
       size="small"
-      onPress={() => handleMoviePress(item)}
+      onPress={() => handleMoviePress(item, TypeList.POPULAR)}
+      type="show"
     />
   );
-
+  const getPosterUrl = () => {
+    if (featuredMovie) {
+      if (
+        featuredMovie.poster_path.startsWith('http') ||
+        featuredMovie.poster_path.startsWith('file')
+      ) {
+        return featuredMovie.poster_path;
+      }
+      return `https://image.tmdb.org/t/p/w500${featuredMovie.poster_path}`;
+    } else {
+      return '';
+    }
+  };
   const renderFeaturedMovie = () => {
     if (!featuredMovie) return null;
 
@@ -89,11 +113,11 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
 
         <TouchableOpacity
           style={styles.featuredCard}
-          onPress={() => handleMoviePress(featuredMovie)}
+          onPress={() => handleMoviePress(featuredMovie, TypeList.POPULAR)}
           activeOpacity={0.9}>
           <Image
             source={{
-              uri: `https://image.tmdb.org/t/p/w500${featuredMovie.poster_path}`,
+              uri: getPosterUrl(),
             }}
             style={styles.featuredPoster}
             resizeMode="cover"
@@ -148,26 +172,49 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionHeaderTitle}>My List</Text>
               <TouchableOpacity
-                style={styles.addButton}
-                onPress={handleAddMovie}>
-                <IconButton
-                  icon="plus-circle"
-                  size={24}
-                  iconColor="#0F4C3A"
-                  style={{margin: 0}}
-                />
-                <Text style={styles.addButtonText}>Add Movie</Text>
+                onPress={() =>
+                  navigation.navigate(Screens.ListMovieScreen, {
+                    type: TypeList.MYLIST,
+                  })
+                }>
+                <View style={styles.seeAllContainer}>
+                  <Text style={styles.seeAllText}>See all</Text>
+                  <IconButton
+                    icon="chevron-right"
+                    size={16}
+                    iconColor="#0F4C3A"
+                    style={{margin: 0}}
+                  />
+                </View>
               </TouchableOpacity>
             </View>
-
-            <FlatList
-              data={myList}
-              renderItem={renderMovieCard}
-              keyExtractor={(item, index) => `mylist-${item.id}-${index}`}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalListContent}
-            />
+            <View style={{flexDirection: 'row'}}>
+              <MovieCard
+                id={''}
+                title={''}
+                posterPath={''}
+                size="small"
+                onPress={handleAddMovie}
+                type={'add'}
+              />
+              <FlatList
+                data={dataMyMovieList || []}
+                renderItem={({item}) => (
+                  <MovieCard
+                    id={item.id || ''}
+                    title={item.title || ''}
+                    posterPath={item.poster_path || ''}
+                    size="small"
+                    onPress={() => handleMoviePress(item, TypeList.MYLIST)}
+                    type="show"
+                  />
+                )}
+                keyExtractor={(item, index) => `mylist-${item.id}-${index}`}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalListContent}
+              />
+            </View>
           </View>
 
           <View style={styles.listSection}>
@@ -175,7 +222,9 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
               <Text style={styles.sectionHeaderTitle}>Popular Movies</Text>
               <TouchableOpacity
                 onPress={() =>
-                  navigation.navigate(Screens.PopularMoviesScreen)
+                  navigation.navigate(Screens.ListMovieScreen, {
+                    type: TypeList.POPULAR,
+                  })
                 }>
                 <View style={styles.seeAllContainer}>
                   <Text style={styles.seeAllText}>See all</Text>
@@ -190,7 +239,7 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
             </View>
 
             <FlatList
-              data={popularMovies.slice(0, 6)}
+              data={popularMovies}
               renderItem={renderMovieCard}
               keyExtractor={item => `popular-${item.id}`}
               horizontal
