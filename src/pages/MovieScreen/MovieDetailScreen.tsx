@@ -1,4 +1,5 @@
 import {API_KEY} from '#/api/tmdbApi';
+import {StarRating} from '#/components/StarRating';
 import {
   MovieType,
   MyMovie,
@@ -7,15 +8,19 @@ import {
   TypeList,
   VideoType,
 } from '#/navigator/type';
+import {colors} from '#/themes/colors';
+import {useRateMovieList} from '#/useLocalStorageSWR';
+import {getPosterUrl} from '#/utils/image';
 import {RouteProp} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   Dimensions,
   Image,
   ImageBackground,
   SafeAreaView,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -35,14 +40,20 @@ export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
   navigation,
   route,
 }) => {
+  const isTablet = width > 768;
   const {movie, type} = route.params;
-
+  const {data, saveData} = useRateMovieList();
+  const rateMovieFind = useMemo(() => {
+    if (!Array.isArray(data)) {
+      return null;
+    }
+    return data.find(item => item.movie.id === movie.id);
+  }, [data, movie.id]);
   const [movieDetails, setMovieDetails] = useState<MovieType | MyMovie | null>(
     null,
   );
   const [video, setVideo] = useState<VideoType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
 
   useEffect(() => {
@@ -77,11 +88,16 @@ export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
     navigation.goBack();
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
+  const handleShare = async () => {
+    if (movie) {
+      try {
+        await Share.share({
+          title: movie.title,
+          message: `Check out this movie: ${movie.title}`,
+        });
+      } catch (error) {}
+    }
   };
-
-  const handleShare = () => {};
 
   const handlePlayTrailer = () => {
     if (video) {
@@ -100,19 +116,7 @@ export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
       })
       .replace(/\//g, '/');
   };
-  const getPosterUrl = () => {
-    if (movie.poster_path) {
-      if (
-        movie.poster_path.startsWith('http') ||
-        movie.poster_path.startsWith('file')
-      ) {
-        return movie.poster_path;
-      }
-      return `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
-    } else {
-      return '';
-    }
-  };
+
   async function fetchMovieVideos(id: number): Promise<VideoType[]> {
     try {
       const response = await fetch(
@@ -133,7 +137,6 @@ export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
       </SafeAreaView>
     );
   }
-  console.log(movie.poster_path);
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#D8F3E9" />
@@ -154,7 +157,7 @@ export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
           <View style={styles.posterCard}>
             <Image
               source={{
-                uri: getPosterUrl(),
+                uri: getPosterUrl(movie.poster_path || ''),
               }}
               style={styles.posterImage}
               resizeMode="cover"
@@ -188,15 +191,17 @@ export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>The Plot</Text>
               <View style={styles.actionButtons}>
-                <IconButton
-                  icon="pencil-outline"
-                  size={24}
-                  iconColor="#0F4C3A"
-                  style={styles.actionButton}
-                  onPress={() =>
-                    navigation.navigate(Screens.RateScreen, {movie})
-                  }
-                />
+                {!rateMovieFind && (
+                  <IconButton
+                    icon="pencil-outline"
+                    size={24}
+                    iconColor="#0F4C3A"
+                    style={styles.actionButton}
+                    onPress={() =>
+                      navigation.navigate(Screens.RateScreen, {movie})
+                    }
+                  />
+                )}
                 <IconButton
                   icon="share-outline"
                   size={24}
@@ -228,7 +233,10 @@ export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
                 />
               ) : (
                 <TouchableOpacity
-                  style={styles.trailerContainer}
+                  style={[
+                    styles.trailerContainer,
+                    {height: isTablet ? 450 : 180},
+                  ]}
                   onPress={handlePlayTrailer}
                   activeOpacity={0.9}>
                   <Image
@@ -256,6 +264,38 @@ export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
               <Text style={styles.trailerTitle}>
                 Trailer:
                 {video?.name || movie.title || 'When Life Gives You Tangerines'}
+              </Text>
+            </View>
+          )}
+          {rateMovieFind && (
+            <View
+              style={{
+                backgroundColor: '#fff',
+                borderRadius: 8,
+                borderColor: colors.Primary,
+                borderWidth: 1,
+                marginHorizontal: 15,
+                paddingHorizontal: 15,
+                paddingBottom: 15,
+                alignItems: 'center',
+              }}>
+              <View style={{width: '100%', flexDirection: 'row-reverse'}}>
+                <IconButton
+                  icon="pencil-outline"
+                  size={24}
+                  iconColor="#0F4C3A"
+                  style={styles.actionButton}
+                  onPress={() =>
+                    navigation.navigate(Screens.RateScreen, {movie})
+                  }
+                />
+              </View>
+              <StarRating
+                rating={rateMovieFind?.star || 0}
+                onRatingChange={() => {}}
+              />
+              <Text style={{color: colors.Primary2}}>
+                {rateMovieFind?.review}
               </Text>
             </View>
           )}
@@ -348,7 +388,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   trailerContainer: {
-    height: 180,
     borderRadius: 15,
     overflow: 'hidden',
     marginTop: 10,

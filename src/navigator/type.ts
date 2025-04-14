@@ -9,6 +9,8 @@ export enum Screens {
   RateScreen = 'RateScreen',
   ListMovieScreen = 'ListMovieScreen',
   AddMovieScreen = 'AddMovieScreen',
+  SearchMovieScreen = 'SearchMovieScreen',
+  NotificationsScreen = 'NotificationsScreen',
 }
 
 export type RootStackParamsList = {
@@ -19,7 +21,9 @@ export type RootStackParamsList = {
   ListMovieScreen: {type: TypeList};
   MovieScreen: undefined;
   SettingsScreen: undefined;
-  AddMovieScreen: undefined;
+  NotificationsScreen: undefined;
+  AddMovieScreen: {movie?: MyMovie} | undefined;
+  SearchMovieScreen: {type: TypeList};
   MovieDetailScreen: {movie: MovieType | MyMovie; type: TypeList};
   RateScreen: {movie: MovieType | MyMovie};
 };
@@ -32,7 +36,6 @@ export interface MovieType {
   release_date: string;
   vote_average: number;
   vote_count: number;
-  genre_ids: number[];
 }
 export interface VideoType {
   id: string;
@@ -43,19 +46,39 @@ export interface VideoType {
 }
 export interface MyMovie {
   title: string;
-  genre: string;
+  vote_average: number;
   release_date: string;
   overview: string;
   poster_path: string | null;
   id: string;
 }
+export interface RateMovie {
+  movie: MyMovie;
+  star: number;
+  review: string;
+  date: string;
+}
 export enum TypeList {
   POPULAR = 'popular',
   MYLIST = 'myList',
 }
-export interface RateMovie {
-  idMovie: string;
-  star: number;
+export interface DiaryEntry {
+  id: string;
+  movieId: string;
+  title: string;
+  year: string;
+  posterPath: string;
+  rating: number;
   review: string;
-  date: string;
+  date: Date;
+}
+
+export interface DayItem {
+  id: string;
+  day: string;
+  date: number;
+  month: number;
+  year: number;
+  fullDate: Date;
+  isSelected: boolean;
 }

@@ -1,37 +1,51 @@
-import React, {useState, useEffect} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  Image,
-  TouchableOpacity,
-  TextInput,
-  ImageBackground,
-  Dimensions,
-} from 'react-native';
-import {IconButton} from 'react-native-paper';
-import {useNavigation} from '@react-navigation/native';
-import Carousel from 'react-native-reanimated-carousel';
 import {API_KEY} from '#/api/tmdbApi';
+import {MovieType, Screens, TypeList} from '#/navigator/type';
+import {colors} from '#/themes/colors';
+import {useIsNotificationSetList} from '#/useLocalStorageSWR';
 import notifee, {
   RepeatFrequency,
   TimestampTrigger,
   TriggerType,
 } from '@notifee/react-native';
-import {useIsNotificationSetList} from '#/useLocalStorageSWR';
-import {MovieType} from '#/navigator/type';
-import uuid from 'react-native-uuid';
+import {useNavigation} from '@react-navigation/native';
+import React, {useEffect, useState, useCallback, useRef} from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  ImageBackground,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {IconButton} from 'react-native-paper';
+import Carousel from 'react-native-reanimated-carousel';
 
 const {width} = Dimensions.get('window');
 
+const debounce = (func: (...args: any[]) => void, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
 const ComingSoonScreen: React.FC = () => {
+  const isTablet = width > 768;
   const navigation = useNavigation();
   const [movies, setMovies] = useState<MovieType[]>([]);
+  const [filteredMovies, setFilteredMovies] = useState<MovieType[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const {data: dataNotificationList, saveData: saveDataNotificationList} =
     useIsNotificationSetList();
+  const currentDate = new Date();
+  const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     const fetchComingSoonMovies = async () => {
@@ -47,15 +61,21 @@ const ComingSoonScreen: React.FC = () => {
         const movies: MovieType[] = (data.results || []).map((item: any) => ({
           id: String(item.id),
           title: item.title || '',
-          poster_path: item.poster_path || '',
-          backdrop_path: item.backdrop_path || '',
+          poster_path: item.poster_path
+            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+            : '',
+          backdrop_path: item.backdrop_path
+            ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}`
+            : '',
           overview: item.overview || '',
           release_date: item.release_date || '',
           vote_average: item.vote_average || 0,
           vote_count: item.vote_count || 0,
           genre_ids: item.genre_ids || [],
         }));
+
         setMovies(movies);
+        setFilteredMovies(movies);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching coming soon movies:', error);
@@ -65,6 +85,33 @@ const ComingSoonScreen: React.FC = () => {
 
     fetchComingSoonMovies();
   }, []);
+
+  const debouncedFilterMovies = useCallback(
+    debounce(() => {
+      if (searchQuery.trim() === '') {
+        setFilteredMovies(movies);
+      } else {
+        const filtered = movies.filter(movie =>
+          movie.title.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+        );
+        setFilteredMovies(filtered);
+      }
+    }, 300),
+    [movies, searchQuery],
+  );
+
+  useEffect(() => {
+    debouncedFilterMovies();
+  }, [searchQuery, movies, debouncedFilterMovies]);
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    searchInputRef.current?.blur();
+  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -79,64 +126,84 @@ const ComingSoonScreen: React.FC = () => {
   };
 
   const toggleSwitch = async (movie: MovieType) => {
-    await notifee.requestPermission();
-    const movieFind = (dataNotificationList || []).find(
-      item => item.id === movie.id,
-    );
-    if (movieFind) {
-      await notifee.cancelNotification(movieFind.id.toString());
-      const updateData = (dataNotificationList || []).filter(
-        item => item.id !== movie.id,
+    try {
+      await notifee.requestPermission();
+      const movieFind = (dataNotificationList || []).find(
+        item => item.id === movie.id,
       );
-      saveDataNotificationList(updateData);
-    } else {
-      const newId = uuid.v4().toString();
-      const releaseDate = new Date(movie.release_date);
-      if (isNaN(releaseDate.getTime())) {
-        console.warn(`Invalid release date for ${movie.title}`);
-        return;
+      if (movieFind) {
+        await notifee.cancelNotification(movieFind.id.toString());
+        const updateData = (dataNotificationList || []).filter(
+          item => item.id !== movie.id,
+        );
+        await saveDataNotificationList(updateData);
+      } else {
+        const releaseDate = new Date(movie.release_date);
+        if (isNaN(releaseDate.getTime())) {
+          console.warn(`Invalid release date for ${movie.title}`);
+          return;
+        }
+        if (movie.release_date && new Date(movie.release_date) > currentDate) {
+          const trigger: TimestampTrigger = {
+            type: TriggerType.TIMESTAMP,
+            timestamp: releaseDate.getTime(),
+            repeatFrequency: RepeatFrequency.NONE,
+          };
+          await notifee.createTriggerNotification(
+            {
+              id: movie.id.toString(),
+              title: `${movie?.title} is out now, watch it now!`,
+              body: '',
+            },
+            trigger,
+          );
+        }
+        const updateData = [
+          ...(dataNotificationList || []),
+          {...movie, id: movie.id},
+        ];
+        await saveDataNotificationList(updateData);
       }
-      const trigger: TimestampTrigger = {
-        type: TriggerType.TIMESTAMP,
-        timestamp: releaseDate.getTime(),
-        repeatFrequency: RepeatFrequency.NONE,
-      };
-      await notifee.createTriggerNotification(
-        {
-          id: newId,
-          title: `${movie?.title} is out now, watch it now!`,
-          body: '',
-        },
-        trigger,
-      );
-      const updateData = [
-        ...(dataNotificationList || []),
-        {...movie, id: newId},
-      ];
-      saveDataNotificationList(updateData);
+    } catch (error) {
+      console.error('Error toggling notification:', error);
     }
   };
 
   const renderMovieItem = ({item, index}: {item: MovieType; index: number}) => {
+    const movieNotife = (dataNotificationList || []).find(
+      notification => notification.id === item.id,
+    );
+
     return (
       <TouchableOpacity
         style={styles.movieCard}
-        onPress={() => {}}
-        activeOpacity={0.8}>
+        onPress={() =>
+          navigation.navigate(Screens.MovieDetailScreen, {
+            movie: item,
+            type: TypeList.POPULAR,
+          })
+        }
+        activeOpacity={0.8}
+        accessibilityLabel={`View details for ${item.title}`}>
         <Image
           source={{
             uri: item.poster_path
-              ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-              : 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/movie%20info-B7KFqipXWPoxaSNv9jRcP1oOuuuCpY.png',
+              ? item.poster_path
+              : 'https://via.placeholder.com/500x750?text=No+Poster',
           }}
           style={styles.poster}
           resizeMode="cover"
         />
         <TouchableOpacity
           style={styles.notificationButton}
-          onPress={() => toggleSwitch(item)}>
+          onPress={() => toggleSwitch(item)}
+          accessibilityLabel={
+            movieNotife
+              ? `Turn off notification for ${item.title}`
+              : `Turn on notification for ${item.title}`
+          }>
           <IconButton
-            icon="bell-outline"
+            icon={movieNotife ? 'bell' : 'bell-outline'}
             size={20}
             iconColor="#0F4C3A"
             style={{margin: 0}}
@@ -144,10 +211,10 @@ const ComingSoonScreen: React.FC = () => {
         </TouchableOpacity>
         <View style={styles.titleContainer}>
           <Text style={styles.movieTitle} numberOfLines={2}>
-            {item.title || 'When Life Gives You Tangerines'}
+            {item.title || 'Untitled Movie'}
           </Text>
           <Text style={styles.releaseDate}>
-            {formatDate(item.release_date) || '20/04/2025'}
+            {formatDate(item.release_date) || 'Unknown Date'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -157,6 +224,7 @@ const ComingSoonScreen: React.FC = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <ActivityIndicator size="large" color="#0F4C3A" />
         <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
     );
@@ -176,31 +244,51 @@ const ComingSoonScreen: React.FC = () => {
             <IconButton
               icon="magnify"
               size={20}
-              iconColor="#999999"
-              style={{margin: 0}}
+              iconColor={colors.Primary}
+              style={styles.searchIcon}
+              accessibilityLabel="Search"
             />
             <TextInput
+              ref={searchInputRef}
               style={styles.searchInput}
-              placeholder="Search"
+              placeholder="Search by title"
               placeholderTextColor="#999999"
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              accessibilityLabel="Search movie titles"
+              returnKeyType="search"
             />
+            {searchQuery.length > 0 && (
+              <IconButton
+                icon="close"
+                size={20}
+                iconColor={colors.Primary}
+                style={styles.clearIcon}
+                onPress={handleClearSearch}
+                accessibilityLabel="Clear search"
+              />
+            )}
           </View>
 
-          <Carousel
-            width={width * 0.7}
-            height={500}
-            data={movies}
-            renderItem={renderMovieItem}
-            style={styles.carousel}
-            loop
-            autoPlay
-            autoPlayInterval={3000}
-            mode="parallax"
-            modeConfig={{
-              parallaxScrollingScale: 0.9,
-              parallaxScrollingOffset: 50,
-            }}
-          />
+          {filteredMovies.length === 0 && searchQuery.trim() !== '' ? (
+            <Text style={styles.emptyText}>No results found.</Text>
+          ) : (
+            <Carousel
+              width={width * 0.7}
+              height={500}
+              data={filteredMovies}
+              renderItem={renderMovieItem}
+              style={styles.carousel}
+              loop
+              autoPlay={filteredMovies.length > 1}
+              autoPlayInterval={3000}
+              mode="parallax"
+              modeConfig={{
+                parallaxScrollingScale: 0.9,
+                parallaxScrollingOffset: 50,
+              }}
+            />
+          )}
         </View>
       </ImageBackground>
     </SafeAreaView>
@@ -228,16 +316,21 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    marginBottom: 16,
+    marginHorizontal: 20,
+    paddingHorizontal: 15,
+    height: 45,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 25,
+    marginBottom: 15,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: '#333333',
-    paddingVertical: 8,
+  },
+  clearIcon: {
+    margin: 0,
+    marginLeft: 10,
   },
   carousel: {
     alignItems: 'center',
@@ -290,6 +383,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     marginTop: 20,
+  },
+  emptyText: {
+    color: '#0F4C3A',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  searchIcon: {
+    margin: 0,
+    marginRight: 10,
   },
 });
 

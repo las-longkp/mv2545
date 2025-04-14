@@ -1,50 +1,76 @@
-// screens/SettingsScreen.tsx
-import {useNavigation} from '@react-navigation/native';
-import React from 'react';
+import React, {useCallback} from 'react';
 import {
+  Alert,
   ImageBackground,
+  Linking,
   SafeAreaView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import {Icon} from 'react-native-paper';
+import InAppReview from 'react-native-in-app-review';
 
 const SettingsScreen = () => {
-  const navigation = useNavigation();
+  const handleShareApp = async () => {
+    try {
+      await Share.share({
+        message: 'Check out this awesome app!',
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
-  const handleShareApp = async () => {};
+  const handleRateApp = useCallback(async () => {
+    try {
+      const available = await InAppReview.isAvailable();
+      if (available) {
+        await InAppReview.RequestInAppReview();
+      } else {
+        Alert.alert('Error', 'In-app review is not available');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to request review');
+    }
+  }, []);
 
-  const handleRateUs = () => {};
-
-  const handleReportProblem = () => {};
+  const handleTermsOfPolicy = () => {
+    Linking.canOpenURL('https://www.apple.com/legal/privacy/vn/')
+      .then(supported => {
+        if (supported) {
+          return Linking.openURL('https://www.apple.com/legal/privacy/vn/');
+        }
+      })
+      .catch(err => console.error('An error occurred', err));
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <ImageBackground
         source={{uri: 'blobBackground'}}
         style={styles.backgroundImage}
         resizeMode="cover">
         <View style={styles.content}>
-          <Text style={styles.title}>Coming Soon</Text>
+          <Text style={styles.title}>Settings</Text>
 
           <TouchableOpacity style={styles.button} onPress={handleShareApp}>
-            <Icon name="share-social-outline" size={24} color="#0F4C3A" />
+            <Icon source="share-variant" size={24} color="#0F4C3A" />
             <Text style={styles.buttonText}>Share The App</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.button} onPress={handleRateUs}>
-            <Icon name="star-outline" size={24} color="#0F4C3A" />
-            <Text style={styles.buttonText}>Rate Us</Text>
+          <TouchableOpacity style={styles.button} onPress={handleRateApp}>
+            <Icon source="star-outline" size={24} color="#0F4C3A" />
+            <Text style={styles.buttonText}>Rate App</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.button} onPress={handleReportProblem}>
-            <Icon name="alert-circle-outline" size={24} color="#0F4C3A" />
-            <Text style={styles.buttonText}>Report Problem</Text>
+          <TouchableOpacity style={styles.button} onPress={handleTermsOfPolicy}>
+            <Icon source="alert-circle-outline" size={24} color="#0F4C3A" />
+            <Text style={styles.buttonText}>Term of Policy</Text>
           </TouchableOpacity>
         </View>
       </ImageBackground>

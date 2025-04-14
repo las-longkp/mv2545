@@ -133,6 +133,7 @@ const styles = StyleSheet.create({
     height: '25%',
     paddingTop: 12,
     position: 'relative',
+    justifyContent: 'center',
   },
   title: {
     color: '#FFFFFF',
@@ -144,5 +145,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-
-export default MovieCard;
+export default React.memo(MovieCard);

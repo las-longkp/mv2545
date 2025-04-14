@@ -24,37 +24,35 @@ import {
   View,
 } from 'react-native';
 import {IconButton} from 'react-native-paper';
+import Carousel from 'react-native-reanimated-carousel';
 
 const {width} = Dimensions.get('window');
+
 type MovieScreenProps = {
   navigation: StackNavigationProp<RootStackParamsList>;
 };
 
 export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
+  const isTablet = width > 768;
   const {data: dataMyMovieList, saveData: saveDataMyMovieList} =
     useMyMovieList();
   const [trendingMovies, setTrendingMovies] = useState<MovieType[]>([]);
   const [popularMovies, setPopularMovies] = useState<MovieType[]>([]);
   const [myList, setMyList] = useState<MovieType[]>([]);
-  const [featuredMovie, setFeaturedMovie] = useState<MovieType | null>(null);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const loadMovies = async () => {
       try {
         setLoading(true);
-
         const trending = await fetchTrendingMovies();
         setTrendingMovies(trending);
-
-        if (trending.length > 0) {
-          setFeaturedMovie(trending[0]);
-        }
 
         const popular = await fetchPopularMovies();
         setPopularMovies(popular);
 
         if (trending.length > 0) {
-          setMyList([trending[0], trending[0], trending[0]]);
+          setMyList([trending[0], trending[1], trending[2]]);
         }
 
         setLoading(false);
@@ -78,6 +76,16 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
     navigation.navigate(Screens.AddMovieScreen);
   };
 
+  const getPosterUrl = (posterPath?: string) => {
+    if (posterPath) {
+      if (posterPath.startsWith('http') || posterPath.startsWith('file')) {
+        return posterPath;
+      }
+      return `https://image.tmdb.org/t/p/w500${posterPath}`;
+    }
+    return 'https://via.placeholder.com/500x750?text=No+Poster';
+  };
+
   const renderMovieCard = ({item}: {item: MovieType}) => (
     <MovieCard
       id={item.id || ''}
@@ -88,21 +96,53 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
       type="show"
     />
   );
-  const getPosterUrl = () => {
-    if (featuredMovie) {
-      if (
-        featuredMovie.poster_path.startsWith('http') ||
-        featuredMovie.poster_path.startsWith('file')
-      ) {
-        return featuredMovie.poster_path;
-      }
-      return `https://image.tmdb.org/t/p/w500${featuredMovie.poster_path}`;
-    } else {
-      return '';
-    }
+
+  const renderFeaturedMovie = ({item}: {item: MovieType}) => {
+    return (
+      <TouchableOpacity
+        style={styles.featuredCard}
+        onPress={() => handleMoviePress(item, TypeList.POPULAR)}
+        activeOpacity={0.9}
+        accessibilityLabel={`View details for ${item.title}`}>
+        <Image
+          source={{
+            uri: getPosterUrl(item.poster_path),
+          }}
+          style={styles.featuredPoster}
+          resizeMode="cover"
+        />
+        <View style={styles.featuredTitleContainer}>
+          <Text style={styles.featuredTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.ratingContainer}>
+            <IconButton
+              icon="star"
+              size={16}
+              iconColor="#FFFFFF"
+              style={{margin: 0}}
+            />
+            <Text style={styles.ratingText}>
+              {Math.round(item.vote_average * 10)}%
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
   };
-  const renderFeaturedMovie = () => {
-    if (!featuredMovie) return null;
+
+  const renderFeaturedCarousel = () => {
+    if (loading || trendingMovies.length === 0) {
+      return (
+        <View style={styles.featuredContainer}>
+          <Text style={styles.sectionTitle}>
+            Movie <Text style={styles.releasedText}>RELEASED</Text>
+          </Text>
+          <Text style={styles.releasedYear}>in 2025</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      );
+    }
 
     return (
       <View style={styles.featuredContainer}>
@@ -110,35 +150,17 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
           Movie <Text style={styles.releasedText}>RELEASED</Text>
         </Text>
         <Text style={styles.releasedYear}>in 2025</Text>
-
-        <TouchableOpacity
-          style={styles.featuredCard}
-          onPress={() => handleMoviePress(featuredMovie, TypeList.POPULAR)}
-          activeOpacity={0.9}>
-          <Image
-            source={{
-              uri: getPosterUrl(),
-            }}
-            style={styles.featuredPoster}
-            resizeMode="cover"
-          />
-          <View style={styles.featuredTitleContainer}>
-            <Text style={styles.featuredTitle} numberOfLines={2}>
-              {featuredMovie.title}
-            </Text>
-            <View style={styles.ratingContainer}>
-              <IconButton
-                icon="star"
-                size={16}
-                iconColor="#FFFFFF"
-                style={{margin: 0}}
-              />
-              <Text style={styles.ratingText}>
-                {Math.round(featuredMovie.vote_average * 10)}%
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+        <Carousel
+          width={width - 20}
+          height={isTablet ? 700 : 250}
+          data={trendingMovies.slice(0, 5)}
+          renderItem={renderFeaturedMovie}
+          loop
+          autoPlay
+          autoPlayInterval={3000}
+          scrollAnimationDuration={1000}
+          style={styles.carousel}
+        />
       </View>
     );
   };
@@ -146,14 +168,16 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#D8F3E9" />
-
       <ImageBackground
         source={{uri: 'gridBg'}}
         style={styles.backgroundImage}
         resizeMode="cover">
         <View style={styles.header}>
+          <View style={{width: 24}} />
           <Text style={styles.headerTitle}>My Movie</Text>
-          <TouchableOpacity style={styles.notificationButton}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate(Screens.NotificationsScreen)}
+            style={styles.notificationButton}>
             <IconButton
               icon="bell"
               size={24}
@@ -166,7 +190,7 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
-          {renderFeaturedMovie()}
+          {renderFeaturedCarousel()}
 
           <View style={styles.listSection}>
             <View style={styles.sectionHeader}>
@@ -188,7 +212,8 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
                 </View>
               </TouchableOpacity>
             </View>
-            <View style={{flexDirection: 'row'}}>
+            <View
+              style={[styles.horizontalListContent, {flexDirection: 'row'}]}>
               <MovieCard
                 id={''}
                 title={''}
@@ -212,7 +237,6 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
                 keyExtractor={(item, index) => `mylist-${item.id}-${index}`}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalListContent}
               />
             </View>
           </View>
@@ -304,7 +328,7 @@ const styles = StyleSheet.create({
   },
   featuredCard: {
     width: '100%',
-    height: 250,
+    height: '100%',
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
@@ -364,16 +388,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0F4C3A',
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: '#0F4C3A',
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 5,
-  },
   seeAllContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -385,5 +399,14 @@ const styles = StyleSheet.create({
   },
   horizontalListContent: {
     paddingHorizontal: 15,
+  },
+  carousel: {
+    marginHorizontal: -10,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#0F4C3A',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });

@@ -7429,6 +7429,7 @@ __metadata:
     react-native: "npm:0.76.7"
     react-native-gesture-handler: "npm:^2.25.0"
     react-native-image-picker: "npm:^8.2.0"
+    react-native-in-app-review: "npm:^4.3.5"
     react-native-paper: "npm:^5.13.1"
     react-native-reanimated: "npm:^3.17.3"
     react-native-reanimated-carousel: "npm:^4.0.2"
@@ -8204,6 +8205,13 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10c0/2e475e930e41de3071899bf2fa2548c1b657b6f5a978843219fe1e0dc1b9678ceb58b5c3410c56c5ca85bd927b1de96ddc958b31f065418b200fc651e039bdf0
+  languageName: node
+  linkType: hard
+
+"react-native-in-app-review@npm:^4.3.5":
+  version: 4.3.5
+  resolution: "react-native-in-app-review@npm:4.3.5"
+  checksum: 10c0/7adbfd91f6ad7a84f2148728c5387bf8d80f0bf4cb5229bf4d8ea728051c90bda297ecc1c8564921622667bf9cdc1c288b4e57ab30c090d6397f01d55d349247
   languageName: node
   linkType: hard
 

@@ -1,47 +1,36 @@
-import React, {useState, useEffect} from 'react';
+import React, {useCallback, useEffect, useState, useRef} from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  StatusBar,
+  ActivityIndicator,
   Alert,
+  Dimensions,
+  FlatList,
   ImageBackground,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import {IconButton} from 'react-native-paper';
 import {useNavigation} from '@react-navigation/native';
 import {colors} from '#/themes/colors';
 import {useRateMovieList} from '#/useLocalStorageSWR';
+import DiaryEntryCard from '#/components/DiaryEntryCard';
+import {DayItem, DiaryEntry, RateMovie, Screens} from '#/navigator/type';
 
-interface DiaryEntry {
-  id: string;
-  movieId: string; // Changed to string to match idMovie
-  title: string;
-  year: string;
-  posterPath: string;
-  rating: number;
-  review: string;
-  date: Date;
-}
-
-interface DayItem {
-  id: string;
-  day: string;
-  date: number;
-  month: number;
-  year: number;
-  fullDate: Date;
-  isSelected: boolean;
-}
-
-const TMDB_API_KEY = 'YOUR_TMDB_API_KEY'; // Replace with your TMDb API key
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+const debounce = (func: (...args: any[]) => void, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
 
 const MovieDiaryScreen = () => {
+  const {width} = Dimensions.get('window');
+  const isTablet = width > 768;
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -49,166 +38,170 @@ const MovieDiaryScreen = () => {
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
   const [filteredEntries, setFilteredEntries] = useState<DiaryEntry[]>([]);
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
+  const [isSearching, setIsSearching] = useState<boolean>(false);
   const {data, saveData} = useRateMovieList();
+  const searchInputRef = useRef<TextInput>(null);
 
-  console.log(data);
-
-  const generateDays = (refDate: Date) => {
-    const daysArray: DayItem[] = [];
-
-    for (let i = -3; i <= 3; i++) {
-      const date = new Date(refDate);
-      date.setDate(refDate.getDate() + i);
-
+  const generateDays = useCallback(
+    (refDate: Date) => {
+      const daysArray: DayItem[] = [];
       const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
-      daysArray.push({
-        id: `day-${date.toISOString()}`,
-        day: dayNames[date.getDay()],
-        date: date.getDate(),
-        month: date.getMonth(),
-        year: date.getFullYear(),
-        fullDate: date,
-        isSelected:
-          i === 0 && date.toDateString() === selectedDate.toDateString(),
-      });
-    }
+      for (let i = -3; i <= 3; i++) {
+        const date = new Date(refDate);
+        date.setDate(refDate.getDate() + i);
 
-    setDays(daysArray);
-  };
+        daysArray.push({
+          id: `day-${date.toISOString()}`,
+          day: dayNames[date.getDay()],
+          date: date.getDate(),
+          month: date.getMonth(),
+          year: date.getFullYear(),
+          fullDate: date,
+          isSelected: date.toDateString() === selectedDate.toDateString(),
+        });
+      }
 
-  const fetchMovieDetails = async (
-    movieId: string,
-  ): Promise<Partial<DiaryEntry>> => {
-    try {
-      const response = await fetch(
-        `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}`,
-      );
-      if (!response.ok) throw new Error('Movie not found');
-      const movie = await response.json();
-      return {
-        title: movie.title || 'Unknown Title',
-        year: movie.release_date
-          ? movie.release_date.split('-')[0]
-          : 'Unknown Year',
-        posterPath: movie.poster_path
-          ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
-          : 'https://via.placeholder.com/100x140.png?text=No+Poster',
-      };
-    } catch (error) {
-      console.error(`Failed to fetch movie ${movieId}:`, error);
-      return {
-        title: 'Unknown Title',
-        year: 'Unknown Year',
-        posterPath: 'https://via.placeholder.com/100x140.png?text=No+Poster',
-      };
-    }
-  };
+      setDays(daysArray);
+    },
+    [selectedDate],
+  );
 
-  const loadDiaryEntries = async () => {
-    if (!data || !Array.isArray(data)) {
+  const loadDiaryEntries = useCallback(() => {
+    if (!data || !Array.isArray(data) || data.length === 0) {
       setDiaryEntries([]);
       setFilteredEntries([]);
+      setIsSearching(false);
       return;
     }
 
-    const entries: DiaryEntry[] = await Promise.all(
-      data.map(async (item: any) => {
-        const movieDetails = await fetchMovieDetails(item.idMovie);
-        return {
-          id: item.idMovie,
-          movieId: item.idMovie,
-          title: movieDetails.title,
-          year: movieDetails.year,
-          posterPath: movieDetails.posterPath,
-          rating: item.star,
-          review: item.review,
-          date: new Date(item.date),
-        };
-      }),
-    );
+    const entries: DiaryEntry[] = data.map((item: RateMovie) => {
+      const releaseYear = item.movie.release_date
+        ? new Date(item.movie.release_date).getFullYear().toString()
+        : new Date().getFullYear().toString();
+      return {
+        id: item.movie.id,
+        movieId: item.movie.id,
+        title: item.movie.title || 'Unknown',
+        year: releaseYear,
+        posterPath:
+          item.movie.poster_path ||
+          'https://via.placeholder.com/100x140.png?text=No+Poster',
+        rating: item.star || 1,
+        review: item.review || '',
+        date: new Date(item.date),
+      };
+    });
 
     setDiaryEntries(entries);
-    // Initially filter for the selected date
+
     const filtered = entries.filter(
-      entry => entry.date.toDateString() === selectedDate.toDateString(),
+      entry =>
+        entry.date.toDateString() === selectedDate.toDateString() &&
+        (searchQuery.trim() === '' ||
+          entry.title.toLowerCase().includes(searchQuery.trim().toLowerCase())),
     );
     setFilteredEntries(filtered);
-  };
+    setIsSearching(false);
+  }, [data, selectedDate, searchQuery]);
+
+  const debouncedLoadDiaryEntries = useCallback(
+    debounce(() => {
+      loadDiaryEntries();
+    }, 300),
+    [loadDiaryEntries],
+  );
 
   useEffect(() => {
     generateDays(referenceDate);
-    loadDiaryEntries();
-  }, [referenceDate, data]);
+    debouncedLoadDiaryEntries();
+  }, [referenceDate, data, generateDays, debouncedLoadDiaryEntries]);
 
-  useEffect(() => {
-    // Update filtered entries when selectedDate changes
-    const filtered = diaryEntries.filter(
-      entry => entry.date.toDateString() === selectedDate.toDateString(),
-    );
-    setFilteredEntries(filtered);
-  }, [selectedDate, diaryEntries]);
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    setIsSearching(true);
+  };
 
-  const moveWeekBackward = () => {
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setIsSearching(false);
+    searchInputRef.current?.blur();
+  };
+
+  const moveWeekBackward = useCallback(() => {
     const newRefDate = new Date(referenceDate);
     newRefDate.setDate(referenceDate.getDate() - 7);
     setReferenceDate(newRefDate);
     setSelectedDate(newRefDate);
-  };
+  }, [referenceDate]);
 
-  const moveWeekForward = () => {
+  const moveWeekForward = useCallback(() => {
     const newRefDate = new Date(referenceDate);
     newRefDate.setDate(referenceDate.getDate() + 7);
     setReferenceDate(newRefDate);
     setSelectedDate(newRefDate);
-  };
+  }, [referenceDate]);
 
-  const handleDaySelect = (day: DayItem) => {
-    const updatedDays = days.map(d => ({
-      ...d,
-      isSelected: d.id === day.id,
-    }));
-    setDays(updatedDays);
-    setSelectedDate(day.fullDate);
-    // Filtering is handled by useEffect
-  };
+  const handleDaySelect = useCallback(
+    (day: DayItem) => {
+      const updatedDays = days.map(d => ({
+        ...d,
+        isSelected: d.id === day.id,
+      }));
+      setDays(updatedDays);
+      setSelectedDate(day.fullDate);
+    },
+    [days],
+  );
 
-  const handleDeleteEntry = (entryId: string) => {
-    Alert.alert(
-      'Delete Entry',
-      'Are you sure you want to delete this diary entry?',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            const updatedEntries = diaryEntries.filter(
-              entry => entry.id !== entryId,
-            );
-            setDiaryEntries(updatedEntries);
-            // Update filtered entries
-            const filtered = updatedEntries.filter(
-              entry =>
-                entry.date.toDateString() === selectedDate.toDateString(),
-            );
-            setFilteredEntries(filtered);
-            // Update local storage
-            saveData(
-              updatedEntries.map(entry => ({
-                idMovie: entry.movieId,
-                star: entry.rating,
-                review: entry.review,
-                date: entry.date.toISOString(),
-              })),
-            );
+  const handleDeleteEntry = useCallback(
+    (entryId: string) => {
+      Alert.alert(
+        'Delete Entry',
+        'Are you sure you want to delete this diary entry?',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              const updatedEntries = diaryEntries.filter(
+                entry => entry.id !== entryId,
+              );
+              setDiaryEntries(updatedEntries);
+              const filtered = updatedEntries.filter(
+                entry =>
+                  entry.date.toDateString() === selectedDate.toDateString() &&
+                  (searchQuery.trim() === '' ||
+                    entry.title
+                      .toLowerCase()
+                      .includes(searchQuery.trim().toLowerCase())),
+              );
+              setFilteredEntries(filtered);
+              saveData(
+                updatedEntries.map(entry => ({
+                  movie: {
+                    id: entry.movieId,
+                    title: entry.title,
+                    vote_average: 0,
+                    release_date: `${entry.year}-01-01`,
+                    overview: '',
+                    poster_path: entry.posterPath,
+                  },
+                  star: entry.rating,
+                  review: entry.review,
+                  date: entry.date.toISOString(),
+                })),
+              );
+            },
           },
-        },
-      ],
-    );
-  };
+        ],
+      );
+    },
+    [diaryEntries, selectedDate, searchQuery, saveData],
+  );
 
-  const getMonthYearDisplay = () => {
+  const getMonthYearDisplay = useCallback(() => {
     if (days.length === 0) return '';
     const firstDay = days[0];
     const lastDay = days[days.length - 1];
@@ -229,92 +222,64 @@ const MovieDiaryScreen = () => {
 
     if (firstDay.month === lastDay.month && firstDay.year === lastDay.year) {
       return `${monthNames[days[3].month]} ${days[3].year}`;
-    } else {
-      return `${monthNames[firstDay.month]} ${firstDay.year} - ${
-        monthNames[lastDay.month]
-      } ${lastDay.year}`;
     }
-  };
+    return `${monthNames[firstDay.month]} ${firstDay.year} - ${
+      monthNames[lastDay.month]
+    } ${lastDay.year}`;
+  }, [days]);
 
-  const renderDayItem = ({item}: {item: DayItem}) => {
-    const monthNames = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return (
-      <TouchableOpacity
-        style={[styles.dayItem, item.isSelected && styles.selectedDayItem]}
-        onPress={() => handleDaySelect(item)}>
-        <Text
-          style={[styles.dayText, item.isSelected && styles.selectedDayText]}>
-          {item.day}
-        </Text>
-        <Text
-          style={[styles.dateText, item.isSelected && styles.selectedDayText]}>
-          {item.date}
-        </Text>
-        <Text
-          style={[styles.monthText, item.isSelected && styles.selectedDayText]}>
-          {monthNames[item.month]}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderDiaryEntry = ({item}: {item: DiaryEntry}) => (
-    <View style={styles.entryContainer}>
-      <View style={styles.entryCard}>
-        <Image
-          source={{uri: item.posterPath}}
-          style={styles.entryPoster}
-          resizeMode="cover"
-        />
-        <View style={styles.entryContent}>
-          <View style={styles.entryHeader}>
-            <Text style={styles.entryTitle}>
-              {item.title} ({item.year})
-            </Text>
-            <TouchableOpacity
-              onPress={() => handleDeleteEntry(item.id)}
-              hitSlop={{top: 10, right: 10, bottom: 10, left: 10}}>
-              <IconButton
-                icon="close"
-                size={20}
-                iconColor="#0F4C3A"
-                style={{margin: 0}}
-                onPress={() => handleDeleteEntry(item.id)}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.ratingContainer}>
-            {[1, 2, 3, 4, 5].map(star => (
-              <IconButton
-                key={`star-${star}`}
-                icon={star <= item.rating ? 'star' : 'star-outline'}
-                size={24}
-                iconColor={colors.Primary}
-                style={styles.starIcon}
-              />
-            ))}
-          </View>
-
-          <Text style={styles.reviewText} numberOfLines={4}>
-            {item.review}
+  const renderDayItem = useCallback(
+    ({item}: {item: DayItem}) => {
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return (
+        <TouchableOpacity
+          style={[
+            styles.dayItem,
+            item.isSelected && styles.selectedDayItem,
+            {
+              width: isTablet ? 120 : 60,
+              height: isTablet ? 130 : 80,
+            },
+          ]}
+          onPress={() => handleDaySelect(item)}
+          accessibilityLabel={`Select ${item.day}, ${item.date} ${
+            monthNames[item.month]
+          }`}>
+          <Text
+            style={[styles.dayText, item.isSelected && styles.selectedDayText]}>
+            {item.day}
           </Text>
-        </View>
-      </View>
-    </View>
+          <Text
+            style={[
+              styles.dateText,
+              item.isSelected && styles.selectedDayText,
+            ]}>
+            {item.date}
+          </Text>
+          <Text
+            style={[
+              styles.monthText,
+              item.isSelected && styles.selectedDayText,
+            ]}>
+            {monthNames[item.month]}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [handleDaySelect],
   );
 
   return (
@@ -324,9 +289,16 @@ const MovieDiaryScreen = () => {
         style={{flex: 1}}
         resizeMode="cover">
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
         <View style={styles.header}>
+          <IconButton
+            icon="arrow-left"
+            size={24}
+            iconColor="#0F4C3A"
+            onPress={navigation.goBack}
+            accessibilityLabel="Go back"
+          />
           <Text style={styles.headerTitle}>Movie Diary</Text>
+          <View style={{width: 24}} />
         </View>
 
         <View style={styles.searchContainer}>
@@ -335,14 +307,28 @@ const MovieDiaryScreen = () => {
             size={20}
             iconColor={colors.Primary}
             style={styles.searchIcon}
+            accessibilityLabel="Search"
           />
           <TextInput
+            ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Search"
+            placeholder="Search by title"
             placeholderTextColor="#999999"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
+            accessibilityLabel="Search movie titles"
+            returnKeyType="search"
           />
+          {searchQuery.length > 0 && (
+            <IconButton
+              icon="close"
+              size={20}
+              iconColor={colors.Primary}
+              style={styles.clearIcon}
+              onPress={handleClearSearch}
+              accessibilityLabel="Clear search"
+            />
+          )}
         </View>
 
         <View style={styles.calendarHeader}>
@@ -357,6 +343,7 @@ const MovieDiaryScreen = () => {
               iconColor="#0F4C3A"
               style={styles.navButton}
               onPress={moveWeekBackward}
+              accessibilityLabel="Previous week"
             />
             <FlatList
               data={days}
@@ -373,68 +360,49 @@ const MovieDiaryScreen = () => {
               iconColor="#0F4C3A"
               style={styles.navButton}
               onPress={moveWeekForward}
+              accessibilityLabel="Next week"
             />
           </View>
         </View>
 
         <FlatList
           data={filteredEntries}
-          renderItem={renderDiaryEntry}
+          renderItem={({item}) => (
+            <DiaryEntryCard
+              item={item}
+              onDelete={handleDeleteEntry}
+              onClick={movie => {
+                navigation.navigate(Screens.RateScreen, {
+                  movie: {
+                    title: movie.title,
+                    vote_average: 0,
+                    release_date: movie.year || '2025',
+                    overview: movie.review,
+                    poster_path: movie.posterPath || '',
+                    id: movie.id,
+                  },
+                });
+              }}
+            />
+          )}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.entriesList}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
-              No diary entries for this date.
+              {searchQuery.trim() && filteredEntries.length === 0
+                ? 'No results found.'
+                : 'No diary entries for this date.'}
             </Text>
           }
+          ListFooterComponent={
+            isSearching ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={colors.Primary2} />
+              </View>
+            ) : null
+          }
         />
-
-        <View style={styles.tabBar}>
-          <TouchableOpacity style={styles.tabItem}>
-            <IconButton
-              icon="movie-outline"
-              size={24}
-              iconColor="#FFFFFF"
-              style={styles.tabIcon}
-            />
-            <Text style={styles.tabText}>Movie</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.tabItem, styles.activeTab]}>
-            <IconButton
-              icon="book-outline"
-              size={24}
-              iconColor="#FFFFFF"
-              style={styles.tabIcon}
-            />
-            <Text style={[styles.tabText, styles.activeTabText]}>Diary</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => navigation.navigate('ComingSoon')}>
-            <IconButton
-              icon="calendar"
-              size={24}
-              iconColor="#FFFFFF"
-              style={styles.tabIcon}
-            />
-            <Text style={styles.tabText}>Coming Soon</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => navigation.navigate('Settings')}>
-            <IconButton
-              icon="cog-outline"
-              size={24}
-              iconColor="#FFFFFF"
-              style={styles.tabIcon}
-            />
-            <Text style={styles.tabText}>Settings</Text>
-          </TouchableOpacity>
-        </View>
       </ImageBackground>
     </SafeAreaView>
   );
@@ -446,6 +414,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 15,
@@ -454,6 +424,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#0F4C3A',
+    flex: 1,
     textAlign: 'center',
   },
   searchContainer: {
@@ -474,6 +445,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#333333',
+  },
+  clearIcon: {
+    margin: 0,
+    marginLeft: 10,
   },
   calendarHeader: {
     paddingHorizontal: 20,
@@ -505,8 +480,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   dayItem: {
-    width: 60,
-    height: 80,
     backgroundColor: '#6BBB9A',
     borderRadius: 10,
     justifyContent: 'center',
@@ -537,86 +510,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  entryContainer: {
-    marginBottom: 15,
-  },
-  entryCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  entryPoster: {
-    width: 100,
-    height: 140,
-  },
-  entryContent: {
-    flex: 1,
-    padding: 12,
-  },
-  entryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  entryTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0F4C3A',
-    flex: 1,
-    marginRight: 10,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  starIcon: {
-    margin: 0,
-  },
-  reviewText: {
-    fontSize: 14,
-    color: '#333333',
-    lineHeight: 20,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    height: 60,
-    backgroundColor: '#0F4C3A',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  tabItem: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100%',
-  },
-  activeTab: {
-    backgroundColor: '#0D3F31',
-  },
-  tabIcon: {
-    margin: 0,
-    backgroundColor: 'transparent',
-  },
-  tabText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    marginTop: 2,
-  },
-  activeTabText: {
-    fontWeight: 'bold',
-  },
   emptyText: {
     textAlign: 'center',
     color: '#333333',
     fontSize: 16,
     marginTop: 20,
+  },
+  loadingContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
   },
 });
 

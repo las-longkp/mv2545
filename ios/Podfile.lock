@@ -1234,6 +1234,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-in-app-review (4.3.5):
+    - React-Core
   - react-native-safe-area-context (5.3.0):
     - React-Core
   - react-native-webview (13.13.5):
@@ -1728,6 +1730,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
+  - react-native-in-app-review (from `../node_modules/react-native-in-app-review`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-webview (from `../node_modules/react-native-webview`)
   - React-nativeconfig (from `../node_modules/react-native/ReactCommon`)
@@ -1839,6 +1842,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-image-picker:
     :path: "../node_modules/react-native-image-picker"
+  react-native-in-app-review:
+    :path: "../node_modules/react-native-in-app-review"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-webview:
@@ -1946,6 +1951,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 23ffe602d0f5ca53b861ef8534cb8c63c4479671
   React-microtasksnativemodule: 66d7cad5a749235163ae689e936267b462bdf3a4
   react-native-image-picker: 5ff22c75390f8e75c88745553b56ad6e4498fe71
+  react-native-in-app-review: cf4a29c5a1d6bb28dd0d15f1fb1faa25e265bfb5
   react-native-safe-area-context: f6fd1adb0c0dfb0a528f561c7c6f9297f3391af3
   react-native-webview: 6acb5e443158f5c7c5a46daa1491c835d2272f98
   React-nativeconfig: 67fa7a63ea288cb5b1d0dd2deaf240405fec164f

@@ -1,10 +1,12 @@
-import {MyMovie} from '#/navigator/type';
+import {MyMovie, Screens, TypeList} from '#/navigator/type';
 import {colors} from '#/themes/colors';
-import {useMyMovieList} from '#/useLocalStorageSWR';
+import {useInitializeMovie, useMyMovieList} from '#/useLocalStorageSWR';
+import {getPosterUrl} from '#/utils/image';
 import {useNavigation} from '@react-navigation/native';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   Alert,
+  Dimensions,
   Image,
   ImageBackground,
   SafeAreaView,
@@ -17,18 +19,44 @@ import {
   View,
 } from 'react-native';
 import {launchImageLibrary} from 'react-native-image-picker';
+import {IconButton} from 'react-native-paper';
+interface FormMovie extends Omit<MyMovie, 'vote_average'> {
+  vote_average: number | string;
+}
 
 const AddMovieScreen = () => {
+  const {width} = Dimensions.get('window');
+
+  const isTablet = width > 768;
   const navigation = useNavigation();
-  const [formData, setFormData] = useState<MyMovie>({
+  const {data: dataInitializeMovie, saveData: saveDataInitializeMovie} =
+    useInitializeMovie();
+  const {data, saveData} = useMyMovieList();
+
+  const [formData, setFormData] = useState<FormMovie>({
     title: '',
-    genre: '',
     release_date: '',
     overview: '',
     poster_path: null,
     id: '',
+    vote_average: '',
   });
-  const {data, saveData} = useMyMovieList();
+
+  useEffect(() => {
+    console.log('hi');
+    if (dataInitializeMovie) {
+      setFormData({
+        title: dataInitializeMovie.title ?? '',
+        release_date: dataInitializeMovie.release_date ?? '',
+        overview: dataInitializeMovie.overview ?? '',
+        poster_path:
+          getPosterUrl(dataInitializeMovie.poster_path ?? '') ?? null,
+        id: dataInitializeMovie.id ? String(dataInitializeMovie.id) : '',
+        vote_average: (dataInitializeMovie as any).vote_average ?? '',
+      });
+    }
+  }, [dataInitializeMovie]);
+
   const handleUploadPoster = async () => {
     const options = {
       mediaType: 'photo' as const,
@@ -36,7 +64,6 @@ const AddMovieScreen = () => {
       maxHeight: 1200,
       maxWidth: 800,
     };
-
     try {
       const response = await launchImageLibrary(options);
       if (response.didCancel) {
@@ -54,7 +81,7 @@ const AddMovieScreen = () => {
     }
   };
 
-  const handleInputChange = (field: keyof MyMovie, value: string) => {
+  const handleInputChange = (field: keyof FormMovie, value: string) => {
     setFormData({
       ...formData,
       [field]: value,
@@ -62,6 +89,7 @@ const AddMovieScreen = () => {
   };
 
   const handleImport = () => {
+    saveDataInitializeMovie(null);
     if (!formData.title.trim()) {
       Alert.alert('Error', 'Please enter a movie name');
       return;
@@ -71,6 +99,16 @@ const AddMovieScreen = () => {
       Alert.alert('Error', 'Please upload a movie poster');
       return;
     }
+
+    const movieToSave: MyMovie = {
+      title: formData.title,
+      release_date: formData.release_date,
+      overview: formData.overview,
+      poster_path: formData.poster_path,
+      id: formData.id || Date.now().toString(),
+      vote_average: 0,
+    };
+
     Alert.alert(
       'Success',
       `"${formData.title}" has been added to your movies`,
@@ -78,7 +116,7 @@ const AddMovieScreen = () => {
         {
           text: 'OK',
           onPress: () => {
-            saveData([...(data || []), formData]);
+            saveData([...(data || []), movieToSave]);
             navigation.goBack();
           },
         },
@@ -89,7 +127,6 @@ const AddMovieScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <ImageBackground
         source={{uri: 'blobBackground'}}
         style={styles.backgroundImage}
@@ -97,24 +134,53 @@ const AddMovieScreen = () => {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.headerTitle}>Add Movie</Text>
+          <View
+            style={{
+              width: '100%',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 15,
+            }}>
+            <IconButton
+              onPress={() => {
+                saveDataInitializeMovie(null);
+                navigation.goBack();
+              }}
+              icon="chevron-left"
+              size={28}
+              iconColor={colors.Primary2}
+              style={{margin: 0}}
+            />
+            <Text style={styles.headerTitle}>Add Movie</Text>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate(Screens.SearchMovieScreen, {
+                  type: TypeList.MYLIST,
+                })
+              }>
+              <Image
+                style={{height: 20, width: 20}}
+                source={{uri: 'searchIcon'}}
+              />
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
-            style={styles.posterUpload}
+            style={[styles.posterUpload, {height: isTablet ? 700 : 250}]}
             onPress={handleUploadPoster}
             activeOpacity={0.8}>
             {formData.poster_path ? (
               <Image
                 source={{uri: formData.poster_path}}
                 style={styles.posterImage}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             ) : (
               <View style={styles.uploadPlaceholder}>
                 <Text style={styles.uploadText}>Upload movie poster</Text>
               </View>
             )}
-
             <View style={styles.titleBanner}>
               <TextInput
                 style={styles.titleInput}
@@ -129,22 +195,25 @@ const AddMovieScreen = () => {
           <View style={styles.formContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Movie Genre"
+              placeholder="Vote Average (e.g., 7.5)"
               placeholderTextColor="#999999"
-              value={formData.genre}
-              onChangeText={text => handleInputChange('genre', text)}
+              keyboardType="decimal-pad"
+              value={
+                formData.vote_average === ''
+                  ? ''
+                  : String(formData.vote_average)
+              }
+              onChangeText={text => handleInputChange('vote_average', text)}
             />
-
             <TextInput
               style={styles.input}
-              placeholder="Year Of Release"
+              placeholder="Year of Release (YYYY)"
               placeholderTextColor="#999999"
               keyboardType="number-pad"
               maxLength={4}
               value={formData.release_date}
               onChangeText={text => handleInputChange('release_date', text)}
             />
-
             <TextInput
               style={styles.reviewInput}
               placeholder="The Plot"
@@ -183,11 +252,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.Primary2,
     textAlign: 'center',
-    marginBottom: 30,
   },
   posterUpload: {
     width: '100%',
-    height: 250,
+
     borderRadius: 15,
     overflow: 'hidden',
     marginBottom: 20,

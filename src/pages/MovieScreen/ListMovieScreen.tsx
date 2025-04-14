@@ -30,6 +30,7 @@ import {useMyMovieList} from '#/useLocalStorageSWR';
 const {width} = Dimensions.get('window');
 const numColumns = 3;
 const itemWidth = (width - 40 - (numColumns - 1) * 10) / numColumns;
+
 type ListMovieScreenProps = {
   navigation: StackNavigationProp<RootStackParamsList>;
   route: RouteProp<RootStackParamsList, Screens.ListMovieScreen>;
@@ -71,8 +72,9 @@ export const ListMovieScreen: React.FC<ListMovieScreenProps> = ({
         setRefreshing(false);
       }
     },
-    [type, dataMyMovieList, setLoading, setMovies, setRefreshing, setPage],
+    [type, dataMyMovieList],
   );
+
   useEffect(() => {
     loadMovies();
   }, [loadMovies]);
@@ -131,8 +133,22 @@ export const ListMovieScreen: React.FC<ListMovieScreenProps> = ({
             iconColor={colors.Primary2}
             style={{margin: 0}}
           />
-          <Text style={styles.headerTitle}>Popular Movies</Text>
-          <View style={{width: 28}} />
+          <Text style={styles.headerTitle}>
+            {type === TypeList.POPULAR ? 'Popular Movies' : 'My List'}
+          </Text>
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate(Screens.SearchMovieScreen, {
+                type: TypeList.POPULAR,
+              })
+            }>
+            {type === TypeList.POPULAR && (
+              <Image
+                style={{height: 20, width: 20}}
+                source={{uri: 'searchIcon'}}
+              />
+            )}
+          </TouchableOpacity>
         </View>
 
         <FlatList
@@ -176,7 +192,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   columnWrapper: {
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginBottom: 10,
   },
   movieItem: {

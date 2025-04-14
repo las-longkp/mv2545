@@ -68,3 +68,10 @@ export function useMyMovieList() {
 export function useRateMovieList() {
   return useLocalStorageSWR<RateMovie[] | null>('rateMovieList', null);
 }
+
+export function useInitializeMovie() {
+  return useLocalStorageSWR<MovieType | MyMovie | null>(
+    'initializeMovieList',
+    null,
+  );
+}

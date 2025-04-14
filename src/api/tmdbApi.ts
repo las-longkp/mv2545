@@ -1,7 +1,7 @@
 import {MovieType} from '#/navigator/type';
 
 export const API_KEY = '12f0a7725ac014190a233fab588d3be5';
-const BASE_URL = 'https://api.themoviedb.org/3';
+export const BASE_URL = 'https://api.themoviedb.org/3';
 
 export const fetchTrendingMovies = async (): Promise<MovieType[]> => {
   try {

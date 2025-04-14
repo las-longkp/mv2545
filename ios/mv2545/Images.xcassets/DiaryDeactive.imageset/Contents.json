@@ -1,0 +1,23 @@
+{
+  "images" : [
+    {
+      "filename" : "hand-held--tablet-kindle-device-electronics-ipad-computer.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "filename" : "hand-held--tablet-kindle-device-electronics-ipad-computer@2x.png",
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "filename" : "hand-held--tablet-kindle-device-electronics-ipad-computer@3x.png",
+      "idiom" : "universal",
+      "scale" : "3x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
