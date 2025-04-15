@@ -6,11 +6,13 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import React from 'react';
 import {RootStackParamsList, Screens} from './type';
 import Footer from '#/components/Footer';
-import MovieDetailScreen from '#/pages/MovieScreen/MovieDetailScreen';
 import {MovieScreen} from '#/pages/MovieScreen/MovieScreen';
-import RateScreen from '#/pages/MovieScreen/RateScreen';
-import {PopularMoviesScreen} from '#/pages/MovieScreen/PopularMoviesScreen';
 import AddMovieScreen from '#/pages/MovieScreen/AddMovieScreen';
+import {ListMovieScreen} from '#/pages/MovieScreen/ListMovieScreen';
+import {MovieDetailScreen} from '#/pages/MovieScreen/MovieDetailScreen';
+import {SearchMovieScreen} from '#/pages/SearchMovieScreen';
+import {RateScreen} from '#/pages/MovieScreen/RateScreen';
+import NotificationsScreen from '#/pages/NotificationsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamsList>();
 const Tab = createBottomTabNavigator<RootStackParamsList>();
@@ -37,14 +39,22 @@ const StackNavigator = () => {
       <Stack.Screen name={Screens.MainScreen} component={TabNavigator} />
       <Stack.Screen name={Screens.RateScreen} component={RateScreen} />
       <Stack.Screen
-        name={Screens.PopularMoviesScreen}
-        component={PopularMoviesScreen}
+        name={Screens.ListMovieScreen}
+        component={ListMovieScreen}
       />
       <Stack.Screen
         name={Screens.MovieDetailScreen}
         component={MovieDetailScreen}
       />
       <Stack.Screen name={Screens.AddMovieScreen} component={AddMovieScreen} />
+      <Stack.Screen
+        name={Screens.SearchMovieScreen}
+        component={SearchMovieScreen}
+      />
+      <Stack.Screen
+        name={Screens.NotificationsScreen}
+        component={NotificationsScreen}
+      />
     </Stack.Navigator>
   );
 };

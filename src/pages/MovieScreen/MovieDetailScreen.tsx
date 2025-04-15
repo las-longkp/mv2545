@@ -1,52 +1,79 @@
-import React, {useState, useEffect} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  Image,
-  TouchableOpacity,
-  ScrollView,
-  Dimensions,
-  ImageBackground,
-} from 'react-native';
-import WebView from 'react-native-webview';
-import {useNavigation, useRoute} from '@react-navigation/native';
-import {IconButton} from 'react-native-paper';
-import {MovieType, Screens, VideoType} from '#/navigator/type';
 import {API_KEY} from '#/api/tmdbApi';
+import {StarRating} from '#/components/StarRating';
+import {
+  MovieType,
+  MyMovie,
+  RootStackParamsList,
+  Screens,
+  TypeList,
+  VideoType,
+} from '#/navigator/type';
+import {colors} from '#/themes/colors';
+import {useRateMovieList} from '#/useLocalStorageSWR';
+import {getPosterUrl} from '#/utils/image';
+import {RouteProp} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import React, {useEffect, useMemo, useState} from 'react';
+import {
+  Dimensions,
+  Image,
+  ImageBackground,
+  SafeAreaView,
+  ScrollView,
+  Share,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {IconButton} from 'react-native-paper';
+import WebView from 'react-native-webview';
 
 const {width} = Dimensions.get('window');
+type MovieDetailScreenProps = {
+  navigation: StackNavigationProp<RootStackParamsList>;
+  route: RouteProp<RootStackParamsList, Screens.MovieDetailScreen>;
+};
 
-const MovieDetailScreen = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const {movie} = route.params as {movie: MovieType};
-
-  const [movieDetails, setMovieDetails] = useState<MovieType | null>(null);
+export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
+  navigation,
+  route,
+}) => {
+  const isTablet = width > 768;
+  const {movie, type} = route.params;
+  const {data, saveData} = useRateMovieList();
+  const rateMovieFind = useMemo(() => {
+    if (!Array.isArray(data)) {
+      return null;
+    }
+    return data.find(item => item.movie.id === movie.id);
+  }, [data, movie.id]);
+  const [movieDetails, setMovieDetails] = useState<MovieType | MyMovie | null>(
+    null,
+  );
   const [video, setVideo] = useState<VideoType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
 
   useEffect(() => {
     const loadMovieData = async () => {
       try {
         setLoading(true);
-
-        const detailsResponse = await fetch(
-          `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${API_KEY}&language=en-US`,
-        );
-        const details = await detailsResponse.json();
-        setMovieDetails(details);
-
-        const videoData = await fetchMovieVideos(movie.id);
-        const trailer = videoData.find(
-          v => v.type === 'Trailer' && v.site === 'YouTube',
-        );
-        setVideo(trailer || videoData[0] || null);
-
+        if (type === TypeList.POPULAR) {
+          const detailsResponse = await fetch(
+            `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${API_KEY}&language=en-US`,
+          );
+          const details = await detailsResponse.json();
+          setMovieDetails(details);
+          const videoData = await fetchMovieVideos(Number(movie.id));
+          const trailer = videoData.find(
+            v => v.type === 'Trailer' && v.site === 'YouTube',
+          );
+          setVideo(trailer || videoData[0] || null);
+        } else {
+          setMovieDetails(movie);
+        }
         setLoading(false);
       } catch (error) {
         console.error('Error loading movie data:', error);
@@ -55,18 +82,21 @@ const MovieDetailScreen = () => {
     };
 
     loadMovieData();
-  }, [movie.id]);
+  }, [movie, movie.id, type]);
 
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-  };
-
-  const handleShare = () => {
-    console.log('Share movie');
+  const handleShare = async () => {
+    if (movie) {
+      try {
+        await Share.share({
+          title: movie.title,
+          message: `Check out this movie: ${movie.title}`,
+        });
+      } catch (error) {}
+    }
   };
 
   const handlePlayTrailer = () => {
@@ -107,7 +137,6 @@ const MovieDetailScreen = () => {
       </SafeAreaView>
     );
   }
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#D8F3E9" />
@@ -128,9 +157,7 @@ const MovieDetailScreen = () => {
           <View style={styles.posterCard}>
             <Image
               source={{
-                uri: movie.poster_path
-                  ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                  : 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/movie%20info-B7KFqipXWPoxaSNv9jRcP1oOuuuCpY.png',
+                uri: getPosterUrl(movie.poster_path || ''),
               }}
               style={styles.posterImage}
               resizeMode="cover"
@@ -147,9 +174,11 @@ const MovieDetailScreen = () => {
           <View style={styles.infoContainer}>
             <Text style={styles.infoText}>
               {movieDetails?.release_date?.slice(0, 4) || '2025'} •{' '}
-              {movieDetails?.vote_average
+              {movieDetails &&
+              'vote_average' in movieDetails &&
+              movieDetails.vote_average
                 ? `${movieDetails.vote_average.toFixed(1)}/10`
-                : 'T13'}
+                : 'T13'}{' '}
               •{' '}
             </Text>
             <Text style={styles.dateText}>
@@ -162,23 +191,17 @@ const MovieDetailScreen = () => {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>The Plot</Text>
               <View style={styles.actionButtons}>
-                <IconButton
-                  icon={isFavorite ? 'heart' : 'heart-outline'}
-                  size={24}
-                  style={styles.actionButton}
-                  onPress={toggleFavorite}
-                  iconColor="#0F4C3A"
-                />
-
-                <IconButton
-                  icon="pencil-outline"
-                  size={24}
-                  iconColor="#0F4C3A"
-                  style={styles.actionButton}
-                  onPress={() =>
-                    navigation.navigate(Screens.RateScreen, {movie})
-                  }
-                />
+                {!rateMovieFind && (
+                  <IconButton
+                    icon="pencil-outline"
+                    size={24}
+                    iconColor="#0F4C3A"
+                    style={styles.actionButton}
+                    onPress={() =>
+                      navigation.navigate(Screens.RateScreen, {movie})
+                    }
+                  />
+                )}
                 <IconButton
                   icon="share-outline"
                   size={24}
@@ -195,49 +218,87 @@ const MovieDetailScreen = () => {
             </Text>
           </View>
 
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Trailer</Text>
-            {showTrailer && video ? (
-              <WebView
-                source={{
-                  uri: `https://www.youtube.com/embed/${video.key}?autoplay=1`,
-                }}
-                style={styles.trailerWebView}
-                allowsFullscreenVideo
-                javaScriptEnabled
-                domStorageEnabled
-              />
-            ) : (
-              <TouchableOpacity
-                style={styles.trailerContainer}
-                onPress={handlePlayTrailer}
-                activeOpacity={0.9}>
-                <Image
+          {video && (
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Trailer</Text>
+              {showTrailer ? (
+                <WebView
                   source={{
-                    uri: movie.backdrop_path
-                      ? `https://image.tmdb.org/t/p/w780${movie.backdrop_path}`
-                      : 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/movie%20info-B7KFqipXWPoxaSNv9jRcP1oOuuuCpY.png',
+                    uri: `https://www.youtube.com/embed/${video.key}?autoplay=1`,
                   }}
-                  style={styles.trailerThumbnail}
-                  resizeMode="cover"
+                  style={styles.trailerWebView}
+                  allowsFullscreenVideo
+                  javaScriptEnabled
+                  domStorageEnabled
                 />
-                <View style={styles.playButtonContainer}>
-                  <View style={styles.playButton}>
-                    <IconButton
-                      icon="play"
-                      size={30}
-                      iconColor="#0F4C3A"
-                      style={{margin: 0}}
-                    />
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.trailerContainer,
+                    {height: isTablet ? 450 : 180},
+                  ]}
+                  onPress={handlePlayTrailer}
+                  activeOpacity={0.9}>
+                  <Image
+                    source={{
+                      uri:
+                        'backdrop_path' in movie && movie.backdrop_path
+                          ? `https://image.tmdb.org/t/p/w780${movie.backdrop_path}`
+                          : 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/movie%20info-B7KFqipXWPoxaSNv9jRcP1oOuuuCpY.png',
+                    }}
+                    style={styles.trailerThumbnail}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.playButtonContainer}>
+                    <View style={styles.playButton}>
+                      <IconButton
+                        icon="play"
+                        size={30}
+                        iconColor="#0F4C3A"
+                        style={{margin: 0}}
+                      />
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            )}
-            <Text style={styles.trailerTitle}>
-              Trailer:{' '}
-              {video?.name || movie.title || 'When Life Gives You Tangerines'}
-            </Text>
-          </View>
+                </TouchableOpacity>
+              )}
+              <Text style={styles.trailerTitle}>
+                Trailer:
+                {video?.name || movie.title || 'When Life Gives You Tangerines'}
+              </Text>
+            </View>
+          )}
+          {rateMovieFind && (
+            <View
+              style={{
+                backgroundColor: '#fff',
+                borderRadius: 8,
+                borderColor: colors.Primary,
+                borderWidth: 1,
+                marginHorizontal: 15,
+                paddingHorizontal: 15,
+                paddingBottom: 15,
+                alignItems: 'center',
+              }}>
+              <View style={{width: '100%', flexDirection: 'row-reverse'}}>
+                <IconButton
+                  icon="pencil-outline"
+                  size={24}
+                  iconColor="#0F4C3A"
+                  style={styles.actionButton}
+                  onPress={() =>
+                    navigation.navigate(Screens.RateScreen, {movie})
+                  }
+                />
+              </View>
+              <StarRating
+                rating={rateMovieFind?.star || 0}
+                onRatingChange={() => {}}
+              />
+              <Text style={{color: colors.Primary2}}>
+                {rateMovieFind?.review}
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </ImageBackground>
     </SafeAreaView>
@@ -327,7 +388,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   trailerContainer: {
-    height: 180,
     borderRadius: 15,
     overflow: 'hidden',
     marginTop: 10,
@@ -374,5 +434,3 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
-
-export default MovieDetailScreen;

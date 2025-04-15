@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import useSWR, {SWRResponse} from 'swr';
-import {MovieType} from './navigator/type';
+import {MovieType, MyMovie, RateMovie} from './navigator/type';
 
 const fetcher = async (key: string) => {
   try {
@@ -59,4 +59,19 @@ export function useLocalStorageSWR<Data = any, Error = any>(
 
 export function useIsNotificationSetList() {
   return useLocalStorageSWR<MovieType[] | null>('isNotificationSetList', null);
+}
+
+export function useMyMovieList() {
+  return useLocalStorageSWR<MyMovie[] | null>('myMovieList', null);
+}
+
+export function useRateMovieList() {
+  return useLocalStorageSWR<RateMovie[] | null>('rateMovieList', null);
+}
+
+export function useInitializeMovie() {
+  return useLocalStorageSWR<MovieType | MyMovie | null>(
+    'initializeMovieList',
+    null,
+  );
 }

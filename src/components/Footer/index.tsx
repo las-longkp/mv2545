@@ -2,8 +2,7 @@ import {Screens} from '#/navigator/type';
 import {colors} from '#/themes/colors';
 import {BottomTabBarProps} from '@react-navigation/bottom-tabs';
 import React, {useState} from 'react';
-import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
-import {Icon} from 'react-native-paper';
+import {Image, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
 const Footer: React.FC<BottomTabBarProps> = ({navigation, state}) => {
   const [selected, setSelected] = useState(Screens.MovieScreen);
@@ -28,10 +27,9 @@ const Footer: React.FC<BottomTabBarProps> = ({navigation, state}) => {
     <TouchableOpacity
       style={[styles.button, selected === name && styles.selectedButton]}
       onPress={() => handlePress(name)}>
-      <Icon
-        source={icon}
-        size={24}
-        color={selected === name ? '#fff' : '#3d3d3d'}
+      <Image
+        style={{height: 24, width: 24}}
+        source={{uri: `${icon}${selected === name ? 'Active' : 'Deactive'}`}}
       />
       <Text
         style={[
@@ -45,18 +43,14 @@ const Footer: React.FC<BottomTabBarProps> = ({navigation, state}) => {
 
   return (
     <View style={styles.groupButton}>
-      <Button name={Screens.MovieScreen} icon="home" label="Movie" />
-      <Button name={Screens.DiaryScreen} icon="bell-outline" label="Diary" />
+      <Button name={Screens.MovieScreen} icon="Movie" label="Movie" />
+      <Button name={Screens.DiaryScreen} icon="Diary" label="Diary" />
       <Button
         name={Screens.ComingSoonScreen}
-        icon="chart-bar"
+        icon="ComingSoon"
         label=" Coming Soon"
       />
-      <Button
-        name={Screens.SettingsScreen}
-        icon="cog-outline"
-        label="Settings"
-      />
+      <Button name={Screens.SettingsScreen} icon="Settings" label="Settings" />
     </View>
   );
 };

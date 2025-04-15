@@ -7429,11 +7429,13 @@ __metadata:
     react-native: "npm:0.76.7"
     react-native-gesture-handler: "npm:^2.25.0"
     react-native-image-picker: "npm:^8.2.0"
+    react-native-in-app-review: "npm:^4.3.5"
     react-native-paper: "npm:^5.13.1"
     react-native-reanimated: "npm:^3.17.3"
     react-native-reanimated-carousel: "npm:^4.0.2"
     react-native-safe-area-context: "npm:^5.3.0"
     react-native-screens: "npm:^4.10.0"
+    react-native-uuid: "npm:^2.0.3"
     react-native-vector-icons: "npm:^10.2.0"
     react-native-webview: "npm:^13.13.5"
     react-test-renderer: "npm:18.3.1"
@@ -8206,6 +8208,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-in-app-review@npm:^4.3.5":
+  version: 4.3.5
+  resolution: "react-native-in-app-review@npm:4.3.5"
+  checksum: 10c0/7adbfd91f6ad7a84f2148728c5387bf8d80f0bf4cb5229bf4d8ea728051c90bda297ecc1c8564921622667bf9cdc1c288b4e57ab30c090d6397f01d55d349247
+  languageName: node
+  linkType: hard
+
 "react-native-is-edge-to-edge@npm:1.1.7":
   version: 1.1.7
   resolution: "react-native-is-edge-to-edge@npm:1.1.7"
@@ -8288,6 +8297,13 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10c0/09d1f55431b85e556ef7b5efd776ac5e85303e47d9138f910cb8c25ff3804effc43185f84e8842bcae2219e8fee12366b3725f955f638c109387efb82e0260f3
+  languageName: node
+  linkType: hard
+
+"react-native-uuid@npm:^2.0.3":
+  version: 2.0.3
+  resolution: "react-native-uuid@npm:2.0.3"
+  checksum: 10c0/d94bccc28936c2dea081ab404f90b0c968092013af4d428b8e74bf407d6098ad5410914f77a903ad1296cce364fc85d27d8dfd70d22ec48d8cf1b7edc8803a8d
   languageName: node
   linkType: hard
 

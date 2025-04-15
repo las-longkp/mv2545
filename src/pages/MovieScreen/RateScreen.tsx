@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -12,41 +12,37 @@ import {
   ImageBackground,
 } from 'react-native';
 import {IconButton} from 'react-native-paper';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
+import {useRateMovieList} from '#/useLocalStorageSWR';
+import uuid from 'react-native-uuid';
+import {StarRating} from '#/components/StarRating';
+import {RootStackParamsList, Screens} from '#/navigator/type';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {getPosterUrl} from '#/utils/image';
+import {colors} from '#/themes/colors';
 
-interface RateScreenProps {
-  route?: any;
-}
+type RateScreenProps = {
+  navigation: StackNavigationProp<RootStackParamsList>;
+  route: RouteProp<RootStackParamsList, Screens.RateScreen>;
+};
 
-const RateScreen: React.FC<RateScreenProps> = ({route}) => {
-  const navigation = useNavigation();
-  const movieData = route?.params?.movie || {
-    id: '1',
-    title: 'When Life Gives You Tangerines',
-    poster_path:
-      'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rate-ojecAqe80fJVvTmFGb1Ylo4dt0sWix.png',
-  };
-
+export const RateScreen: React.FC<RateScreenProps> = ({navigation, route}) => {
+  const movieData = route?.params?.movie;
+  const {data, saveData} = useRateMovieList();
+  const rateMovieFind = useMemo(() => {
+    return (data || []).find(item => item.movie.id === movieData.id);
+  }, [data, movieData.id]);
   const [rating, setRating] = useState<number>(5);
   const [review, setReview] = useState<string>('');
-
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     navigation.goBack();
-  };
-
-  const handleMenu = () => {
-    Alert.alert('Options', 'Select an option', [
-      {text: 'Cancel', style: 'cancel'},
-      {
-        text: 'Clear Review',
-        onPress: () => {
-          setRating(0);
-          setReview('');
-        },
-      },
-      {text: 'Help', onPress: () => console.log('Help pressed')},
-    ]);
-  };
+  }, [navigation]);
+  useEffect(() => {
+    if (rateMovieFind) {
+      setRating(rateMovieFind?.star);
+      setReview(rateMovieFind.review);
+    }
+  }, [rateMovieFind]);
 
   const handleRating = (selectedRating: number) => {
     setRating(selectedRating);
@@ -55,32 +51,59 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
   const handleSubmit = () => {
     Alert.alert(
       'Thank You!',
-      `Your ${rating}-star review has been submitted.`,
-      [{text: 'OK', onPress: () => navigation.goBack()}],
+      `Your ${rating}-star review has been ${
+        rateMovieFind ? 'updated' : 'submitted'
+      }.`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            const newData = {
+              star: rating,
+              review: review,
+              date: new Date().toISOString(),
+            };
+            if (rateMovieFind) {
+              const updateData = (data || []).map(item =>
+                item.movie.id === rateMovieFind.movie.id
+                  ? {
+                      ...newData,
+                      movie: {
+                        title: rateMovieFind.movie.title,
+                        vote_average: rateMovieFind.movie.vote_average,
+                        release_date: rateMovieFind.movie.release_date,
+                        overview: rateMovieFind.movie.overview,
+                        poster_path: rateMovieFind.movie.poster_path,
+                        id: movieData.id.toString(),
+                      },
+                    }
+                  : item,
+              );
+              saveData(updateData);
+            } else {
+              const updateData = [
+                ...(data || []),
+                {
+                  ...newData,
+                  movie: {
+                    title: movieData.title || '',
+                    vote_average: movieData.vote_average || 0,
+                    release_date: movieData.release_date,
+                    overview: movieData.overview,
+                    poster_path: movieData.poster_path,
+                    id: movieData.id.toString(),
+                  },
+                },
+              ];
+              saveData(updateData);
+            }
+            navigation.navigate(Screens.MainScreen, {
+              screen: Screens.DiaryScreen,
+            });
+          },
+        },
+      ],
     );
-
-    console.log('Rating:', rating);
-    console.log('Review:', review);
-  };
-
-  const renderStars = () => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <TouchableOpacity
-          key={i}
-          onPress={() => handleRating(i)}
-          style={styles.starContainer}>
-          <IconButton
-            icon={i <= rating ? 'star' : 'star-outline'}
-            size={40}
-            iconColor="#0F4C3A"
-            style={{margin: 0}} // Loại bỏ margin mặc định
-          />
-        </TouchableOpacity>,
-      );
-    }
-    return stars;
   };
 
   return (
@@ -88,11 +111,10 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
       <StatusBar barStyle="dark-content" backgroundColor="#D8F3E9" />
       <ImageBackground source={{uri: 'gridBg'}} style={{flex: 1}}>
         <View style={styles.backgroundImage}>
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleBack}>
               <IconButton
-                icon="chevron-left" // Thay "chevron-back"
+                icon="chevron-left"
                 size={28}
                 iconColor="#0F4C3A"
                 style={{margin: 0}}
@@ -101,23 +123,15 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
 
             <Text style={styles.headerTitle}>Rate</Text>
 
-            <TouchableOpacity onPress={handleMenu}>
-              <IconButton
-                icon="dots-horizontal" // Thay "ellipsis-horizontal"
-                size={24}
-                iconColor="#0F4C3A"
-                style={{margin: 0}}
-              />
+            <TouchableOpacity onPress={handleSubmit}>
+              <Text style={styles.submitText}>Submit</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Movie Card */}
           <View style={styles.movieCard}>
             <Image
               source={{
-                uri: movieData.poster_path.includes('http')
-                  ? movieData.poster_path
-                  : `https://image.tmdb.org/t/p/w500${movieData.poster_path}`,
+                uri: getPosterUrl(movieData.poster_path || ''),
               }}
               style={styles.moviePoster}
               resizeMode="cover"
@@ -127,10 +141,9 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
             </View>
           </View>
 
-          {/* Rating Stars */}
-          <View style={styles.starsContainer}>{renderStars()}</View>
-
-          {/* Review Input */}
+          <View style={styles.starsContainer}>
+            <StarRating rating={rating} onRatingChange={handleRating} />
+          </View>
           <View style={styles.reviewContainer}>
             <TextInput
               style={styles.reviewInput}
@@ -141,11 +154,6 @@ const RateScreen: React.FC<RateScreenProps> = ({route}) => {
               onChangeText={setReview}
             />
           </View>
-
-          {/* Submit Button */}
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitText}>Submit</Text>
-          </TouchableOpacity>
         </View>
       </ImageBackground>
     </SafeAreaView>
@@ -233,10 +241,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   submitText: {
-    color: '#FFFFFF',
+    color: '#0F4C3A',
     fontSize: 18,
     fontWeight: '600',
   },
 });
-
-export default RateScreen;
