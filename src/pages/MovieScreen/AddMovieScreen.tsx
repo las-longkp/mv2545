@@ -43,7 +43,6 @@ const AddMovieScreen = () => {
   });
 
   useEffect(() => {
-    console.log('hi');
     if (dataInitializeMovie) {
       setFormData({
         title: dataInitializeMovie.title ?? '',

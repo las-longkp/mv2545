@@ -32,7 +32,6 @@ export const RateScreen: React.FC<RateScreenProps> = ({navigation, route}) => {
   const rateMovieFind = useMemo(() => {
     return (data || []).find(item => item.movie.id === movieData.id);
   }, [data, movieData.id]);
-  console.log(rateMovieFind);
   const [rating, setRating] = useState<number>(5);
   const [review, setReview] = useState<string>('');
   const handleBack = useCallback(() => {

@@ -1,4 +1,4 @@
-import {API_KEY} from '#/api/tmdbApi';
+import {API_KEY, targetGenres} from '#/api/tmdbApi';
 import {MovieType, Screens, TypeList} from '#/navigator/type';
 import {colors} from '#/themes/colors';
 import {useIsNotificationSetList} from '#/useLocalStorageSWR';
@@ -46,7 +46,6 @@ const ComingSoonScreen: React.FC = () => {
     useIsNotificationSetList();
   const currentDate = new Date();
   const searchInputRef = useRef<TextInput>(null);
-
   useEffect(() => {
     const fetchComingSoonMovies = async () => {
       try {
@@ -58,27 +57,33 @@ const ComingSoonScreen: React.FC = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        const movies: MovieType[] = (data.results || []).map((item: any) => ({
-          id: String(item.id),
-          title: item.title || '',
-          poster_path: item.poster_path
-            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-            : '',
-          backdrop_path: item.backdrop_path
-            ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}`
-            : '',
-          overview: item.overview || '',
-          release_date: item.release_date || '',
-          vote_average: item.vote_average || 0,
-          vote_count: item.vote_count || 0,
-          genre_ids: item.genre_ids || [],
-        }));
+
+        const movies: MovieType[] = (data.results || [])
+          .filter((item: any) =>
+            item.genre_ids?.some((genreId: number) =>
+              targetGenres.includes(genreId),
+            ),
+          )
+          .map((item: any) => ({
+            id: String(item.id),
+            title: item.title || '',
+            poster_path: item.poster_path
+              ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+              : '',
+            backdrop_path: item.backdrop_path
+              ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}`
+              : '',
+            overview: item.overview || '',
+            release_date: item.release_date || '',
+            vote_average: item.vote_average || 0,
+            vote_count: item.vote_count || 0,
+            genre_ids: item.genre_ids || [],
+          }));
 
         setMovies(movies);
         setFilteredMovies(movies);
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching coming soon movies:', error);
         setLoading(false);
       }
     };

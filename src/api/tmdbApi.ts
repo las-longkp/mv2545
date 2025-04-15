@@ -41,7 +41,7 @@ export const fetchMovieDetails = async (movieId: number): Promise<any> => {
     return null;
   }
 };
-
+export const targetGenres = [12, 10402, 16, 37];
 export const searchMovies = async (query: string): Promise<MovieType[]> => {
   try {
     const response = await fetch(
@@ -50,7 +50,14 @@ export const searchMovies = async (query: string): Promise<MovieType[]> => {
       )}`,
     );
     const data = await response.json();
-    return data.results;
+
+    const filteredResults = data.results.filter((movie: MovieType) =>
+      movie.genre_ids?.some((genreId: number) =>
+        targetGenres.includes(genreId),
+      ),
+    );
+
+    return filteredResults;
   } catch (error) {
     console.error('Error searching movies:', error);
     return [];

@@ -28,6 +28,7 @@ export type RootStackParamsList = {
   RateScreen: {movie: MovieType | MyMovie};
 };
 export interface MovieType {
+  genre_ids?: any;
   id: number | string;
   title: string;
   poster_path: string;
