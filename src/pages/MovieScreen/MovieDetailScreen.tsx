@@ -244,7 +244,7 @@ export const MovieDetailScreen: React.FC<MovieDetailScreenProps> = ({
                       uri:
                         'backdrop_path' in movie && movie.backdrop_path
                           ? `https://image.tmdb.org/t/p/w780${movie.backdrop_path}`
-                          : 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/movie%20info-B7KFqipXWPoxaSNv9jRcP1oOuuuCpY.png',
+                          : 'https://c4.wallpaperflare.com/wallpaper/255/769/318/minimalism-simple-background-dark-wallpaper-preview.jpg',
                     }}
                     style={styles.trailerThumbnail}
                     resizeMode="cover"
