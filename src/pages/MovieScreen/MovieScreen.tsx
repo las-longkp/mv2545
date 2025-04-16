@@ -83,7 +83,7 @@ export const MovieScreen: React.FC<MovieScreenProps> = ({navigation}) => {
       }
       return `https://image.tmdb.org/t/p/w500${posterPath}`;
     }
-    return 'https://via.placeholder.com/500x750?text=No+Poster';
+    return '';
   };
 
   const renderMovieCard = ({item}: {item: MovieType}) => (

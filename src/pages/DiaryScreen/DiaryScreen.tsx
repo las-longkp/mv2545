@@ -84,9 +84,7 @@ const MovieDiaryScreen = () => {
         movieId: item.movie.id,
         title: item.movie.title || 'Unknown',
         year: releaseYear,
-        posterPath:
-          item.movie.poster_path ||
-          'https://via.placeholder.com/100x140.png?text=No+Poster',
+        posterPath: item.movie.poster_path || '',
         rating: item.star || 1,
         review: item.review || '',
         date: new Date(item.date),

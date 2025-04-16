@@ -152,29 +152,34 @@ export const SearchMovieScreen: React.FC<SearchMovieScreenProps> = ({
           />
         </View>
 
-        {searchQuery === '' && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Enter a movie title to search</Text>
-          </View>
-        )}
-
-        {searchQuery !== '' && movies.length === 0 && !loading && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No movies found</Text>
-          </View>
-        )}
-
         <FlatList
+          style={{flex: 1}}
           data={movies}
+          ListEmptyComponent={
+            searchQuery === '' ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  Enter a movie title to search
+                </Text>
+              </View>
+            ) : (
+              movies.length === 0 &&
+              !loading && (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No movies found</Text>
+                </View>
+              )
+            )
+          }
           renderItem={renderMovieItem}
           keyExtractor={(item, index) => `movie-${item.id}-${index}`}
           numColumns={numColumns}
           contentContainerStyle={styles.listContent}
           columnWrapperStyle={styles.columnWrapper}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
+          // onEndReached={handleLoadMore}
+          // onEndReachedThreshold={0.5}
           refreshing={refreshing}
-          onRefresh={handleRefresh}
+          //onRefresh={handleRefresh}
           ListFooterComponent={renderFooter}
           showsVerticalScrollIndicator={false}
         />

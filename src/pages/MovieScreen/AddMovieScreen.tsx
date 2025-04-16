@@ -67,7 +67,7 @@ const AddMovieScreen = () => {
       const response = await launchImageLibrary(options);
       if (response.didCancel) {
       } else if (response.errorCode) {
-        Alert.alert('Error', 'Failed to pick image: ' + response.errorMessage);
+        // Alert.alert('Error', 'Failed to pick image: ' + response.errorMessage);
       } else if (response.assets && response.assets.length > 0) {
         const selectedImage = response.assets[0];
         setFormData({
@@ -76,7 +76,7 @@ const AddMovieScreen = () => {
         });
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to upload image. Please try again.');
+      // Alert.alert('Error', 'Failed to upload image. Please try again.');
     }
   };
 
